@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { LoginResponse, ProviderType } from "@/types/auth";
-import { getOAuthLoginUrl } from "@/lib/api-config";
+import { getOAuthLoginUrl } from "@/lib/api-client";
 
 interface UseOAuthPopupOptions {
   onSuccess: (response: LoginResponse) => void;
