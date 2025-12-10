@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { UserType, ProviderType } from "@/types/auth";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +15,7 @@ interface LoginCardProps {
   ) => Promise<void>;
   onOAuthLogin?: (provider: ProviderType) => void;
   isLoading?: boolean;
+  isOAuthLoading?: boolean;
   error?: string | null;
 }
 
@@ -25,6 +27,8 @@ const loginConfig: Record<
     logo: string;
     buttonColor: string;
     showOAuth: boolean;
+    showRegister: boolean;
+    registerPath: string;
   }
 > = {
   CUSTOMER: {
@@ -33,6 +37,8 @@ const loginConfig: Record<
     logo: "/images/logo-customer.png",
     buttonColor: "bg-blue-600 hover:bg-blue-700",
     showOAuth: true,
+    showRegister: true,
+    registerPath: "/register",
   },
   SELLER: {
     title: "판매자 로그인",
@@ -40,6 +46,8 @@ const loginConfig: Record<
     logo: "/images/logo-seller.png",
     buttonColor: "bg-emerald-600 hover:bg-emerald-700",
     showOAuth: false,
+    showRegister: true,
+    registerPath: "/seller/register",
   },
   ADMIN: {
     title: "관리자 로그인",
@@ -47,6 +55,8 @@ const loginConfig: Record<
     logo: "/images/logo-admin.png",
     buttonColor: "bg-purple-600 hover:bg-purple-700",
     showOAuth: false,
+    showRegister: false,
+    registerPath: "",
   },
 };
 
@@ -81,6 +91,7 @@ export default function LoginCard({
   onLogin,
   onOAuthLogin,
   isLoading = false,
+  isOAuthLoading = false,
   error = null,
 }: LoginCardProps) {
   const [email, setEmail] = useState("");
@@ -115,7 +126,10 @@ export default function LoginCard({
             alt="Tickatch 로고"
             width={180}
             height={60}
-            className="object-contain h-14 w-auto"
+            className={cn(
+              "object-contain h-14 w-auto",
+              "dark:brightness-0 dark:invert"
+            )}
             priority
           />
         </div>
@@ -156,6 +170,7 @@ export default function LoginCard({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={isLoading || isOAuthLoading}
                 className={cn(
                   "w-full px-4 py-3 rounded-lg",
                   "bg-gray-50 dark:bg-gray-700",
@@ -163,7 +178,8 @@ export default function LoginCard({
                   "text-gray-900 dark:text-white",
                   "placeholder-gray-500 dark:placeholder-gray-400",
                   "focus:ring-2 focus:ring-blue-500 focus:border-transparent",
-                  "transition-colors duration-200"
+                  "transition-colors duration-200",
+                  "disabled:opacity-50 disabled:cursor-not-allowed"
                 )}
                 placeholder="email@example.com"
               />
@@ -183,6 +199,7 @@ export default function LoginCard({
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  disabled={isLoading || isOAuthLoading}
                   className={cn(
                     "w-full px-4 py-3 rounded-lg pr-12",
                     "bg-gray-50 dark:bg-gray-700",
@@ -190,17 +207,20 @@ export default function LoginCard({
                     "text-gray-900 dark:text-white",
                     "placeholder-gray-500 dark:placeholder-gray-400",
                     "focus:ring-2 focus:ring-blue-500 focus:border-transparent",
-                    "transition-colors duration-200"
+                    "transition-colors duration-200",
+                    "disabled:opacity-50 disabled:cursor-not-allowed"
                   )}
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  disabled={isLoading || isOAuthLoading}
                   className={cn(
                     "absolute right-3 top-1/2 -translate-y-1/2",
                     "text-gray-500 hover:text-gray-700",
-                    "dark:text-gray-400 dark:hover:text-gray-200"
+                    "dark:text-gray-400 dark:hover:text-gray-200",
+                    "disabled:opacity-50"
                   )}
                 >
                   {showPassword ? (
@@ -248,6 +268,7 @@ export default function LoginCard({
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
+                  disabled={isLoading || isOAuthLoading}
                   className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -264,7 +285,7 @@ export default function LoginCard({
 
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || isOAuthLoading}
               className={cn(
                 "w-full py-3 rounded-lg text-white font-medium",
                 config.buttonColor,
@@ -317,27 +338,59 @@ export default function LoginCard({
                   <button
                     key={provider.type}
                     onClick={() => onOAuthLogin(provider.type)}
+                    disabled={isLoading || isOAuthLoading}
                     className={cn(
                       "w-full py-3 rounded-lg font-medium",
                       provider.color,
                       "transition-colors duration-200",
-                      "flex items-center justify-center gap-2"
+                      "flex items-center justify-center gap-2",
+                      "disabled:opacity-50 disabled:cursor-not-allowed"
                     )}
                   >
-                    <span className="text-lg">{provider.icon}</span>
-                    <span>{provider.name}로 로그인</span>
+                    {isOAuthLoading ? (
+                      <>
+                        <svg
+                          className="animate-spin w-5 h-5"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                            fill="none"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          />
+                        </svg>
+                        <span>인증 중...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-lg">{provider.icon}</span>
+                        <span>{provider.name}로 로그인</span>
+                      </>
+                    )}
                   </button>
                 ))}
               </div>
             </>
           )}
 
-          {userType === "CUSTOMER" && (
+          {config.showRegister && (
             <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
               계정이 없으신가요?{" "}
-              <button className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
+              <Link
+                href={config.registerPath}
+                className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+              >
                 회원가입
-              </button>
+              </Link>
             </p>
           )}
         </div>

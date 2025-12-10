@@ -1,36 +1,245 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Tickatch Web
 
-## Getting Started
+티케팅 서비스 웹 프론트엔드 애플리케이션
 
-First, run the development server:
+## 📋 프로젝트 개요
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+Tickatch는 티켓 예매 플랫폼으로, 고객(Customer), 판매자(Seller), 관리자(Admin) 세 가지 사용자 유형을 지원합니다. 각 사용자 유형별로 독립된 로그인 및 대시보드를 제공합니다.
+
+## 🛠 기술 스택
+
+| 분류             | 기술                                    |
+| ---------------- | --------------------------------------- |
+| Framework        | Next.js 15 (App Router)                 |
+| Language         | TypeScript                              |
+| Styling          | Tailwind CSS                            |
+| State Management | React Context API, useSyncExternalStore |
+| Authentication   | HttpOnly Cookie 기반 토큰 관리          |
+
+## 📁 프로젝트 구조
+
+```
+tickatch_web/
+├── .env.local                          # 환경 변수
+├── public/
+│   └── images/
+│       ├── logo-customer.png           # 고객용 로고
+│       ├── logo-seller.png             # 판매자용 로고
+│       └── logo-admin.png              # 관리자용 로고
+└── src/
+    ├── app/
+    │   ├── layout.tsx                  # 루트 레이아웃
+    │   ├── page.tsx                    # 메인 페이지 (/)
+    │   ├── globals.css                 # 글로벌 CSS
+    │   ├── login/
+    │   │   └── page.tsx                # 고객 로그인 (/login)
+    │   ├── seller/
+    │   │   ├── layout.tsx              # 판매자 레이아웃
+    │   │   ├── page.tsx                # 판매자 메인 (/seller)
+    │   │   └── login/
+    │   │       └── page.tsx            # 판매자 로그인 (/seller/login)
+    │   ├── admin/
+    │   │   ├── layout.tsx              # 관리자 레이아웃
+    │   │   ├── page.tsx                # 관리자 메인 (/admin)
+    │   │   └── login/
+    │   │       └── page.tsx            # 관리자 로그인 (/admin/login)
+    │   └── api/auth/                   # Next.js API Routes
+    │       ├── session/route.ts        # 세션 저장 (토큰→쿠키)
+    │       ├── me/route.ts             # 사용자 정보 조회
+    │       └── logout/route.ts         # 로그아웃
+    ├── components/
+    │   ├── common/
+    │   │   ├── Header.tsx              # 공통 헤더
+    │   │   ├── ThemeToggle.tsx         # 다크모드 토글
+    │   │   ├── NotificationBell.tsx    # 알림 버튼
+    │   │   ├── NotificationDropdown.tsx# 알림 드롭다운
+    │   │   └── AuthButton.tsx          # 로그인/로그아웃 버튼
+    │   └── auth/
+    │       └── LoginCard.tsx           # 로그인 카드 (공통)
+    ├── providers/
+    │   ├── ThemeProvider.tsx           # 다크모드 Provider
+    │   └── AuthProvider.tsx            # 인증 Provider
+    ├── hooks/
+    │   └── useNotification.ts          # 알림 커스텀 훅
+    ├── lib/
+    │   ├── api-config.ts               # API 설정
+    │   └── utils.ts                    # 유틸리티 함수
+    └── types/
+        └── auth.ts                     # 타입 정의
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🔀 라우팅 구조
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| 경로            | 설명             | 인증 필요 | OAuth |
+| --------------- | ---------------- | :-------: | :---: |
+| `/`             | 고객 메인 페이지 |    ❌     |   -   |
+| `/login`        | 고객 로그인      |    ❌     |  ✅   |
+| `/seller`       | 판매자 대시보드  |    ✅     |   -   |
+| `/seller/login` | 판매자 로그인    |    ❌     |  ❌   |
+| `/admin`        | 관리자 대시보드  |    ✅     |   -   |
+| `/admin/login`  | 관리자 로그인    |    ❌     |  ❌   |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🔐 인증 시스템
 
-## Learn More
+### 토큰 관리 아키텍처
 
-To learn more about Next.js, take a look at the following resources:
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                        백엔드 API                                 │
+│              (토큰을 JSON으로 응답 - 플랫폼 무관)                   │
+└──────────────────────────┬───────────────────────────────────────┘
+                           │
+                           │  { accessToken, refreshToken, userType }
+                           │
+         ┌─────────────────┴─────────────────┐
+         ▼                                   ▼
+┌─────────────────┐                 ┌─────────────────┐
+│    모바일 앱     │                 │    Next.js      │
+│                 │                 │   (웹 전용)      │
+│  Keychain /     │                 │  토큰 → 쿠키로   │
+│  Secure Storage │                 │  변환하여 저장   │
+└─────────────────┘                 └────────┬────────┘
+                                             │
+                                             │ Set-Cookie (HttpOnly)
+                                             ▼
+                                    ┌─────────────────┐
+                                    │    브라우저      │
+                                    │  (쿠키에 저장)   │
+                                    └─────────────────┘
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 쿠키 구조
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| 쿠키명          | HttpOnly | 용도                               |
+| --------------- | :------: | ---------------------------------- |
+| `access_token`  |    ✅    | Access Token (JS 접근 불가)        |
+| `refresh_token` |    ✅    | Refresh Token (JS 접근 불가)       |
+| `user_type`     |    ❌    | 사용자 유형 (클라이언트 접근 가능) |
 
-## Deploy on Vercel
+### 보안 특징
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **localStorage 미사용**: XSS 공격으로부터 토큰 보호
+- **HttpOnly 쿠키**: JavaScript에서 토큰 직접 접근 불가
+- **서버 사이드 검증**: Next.js API Routes에서 토큰 처리
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🎨 UI 컴포넌트
+
+### 공통 헤더
+
+- 로고 이미지 (사용자 유형별 다른 이미지)
+- 다크모드 토글 버튼
+- 알림 버튼 (로그인 시에만 표시)
+  - 읽지 않은 알림 존재 시 빨간 점 표시
+  - 클릭 시 드롭다운으로 알림 목록 표시
+- 로그인/로그아웃 버튼
+
+### 로그인 카드
+
+- 공통 컴포넌트로 3개 로그인 페이지에서 재사용
+- 이메일/비밀번호 입력
+- 로그인 유지 체크박스
+- 비밀번호 표시/숨김 토글
+- OAuth 로그인 (Customer만)
+  - 카카오
+  - 네이버
+  - 구글
+
+### 다크모드
+
+- `useSyncExternalStore` 패턴 사용 (React 19 호환)
+- 시스템 설정 자동 감지
+- 쿠키에 테마 설정 저장 (30일)
+
+## ⚙️ 환경 변수
+
+프로젝트 루트에 `.env.local` 파일 생성:
+
+```env
+# API 서버 주소
+NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
+
+# 쿠키 설정
+COOKIE_NAME=tickatch_session
+COOKIE_MAX_AGE=604800
+```
+
+## 🚀 실행 방법
+
+```bash
+# 의존성 설치
+npm install
+
+# 개발 서버 실행
+npm run dev
+
+# 빌드
+npm run build
+
+# 프로덕션 실행
+npm start
+```
+
+## 🖼 로고 이미지
+
+`public/images/` 폴더에 로고 파일 추가:
+
+| 파일명              | 용도                     |
+| ------------------- | ------------------------ |
+| `logo-customer.png` | 고객용 (메인 사이트)     |
+| `logo-seller.png`   | 판매자용 (판매자 센터)   |
+| `logo-admin.png`    | 관리자용 (관리자 페이지) |
+
+> 이미지에 "Tickatch" 텍스트가 포함되어 있어 헤더/로그인에서 별도 텍스트 표시 없음
+
+## 📡 백엔드 API 연동
+
+### 인증 API
+
+| 엔드포인트       | 메서드 | 설명                   |
+| ---------------- | ------ | ---------------------- |
+| `/auth/login`    | POST   | 이메일/비밀번호 로그인 |
+| `/auth/register` | POST   | 회원가입               |
+| `/auth/logout`   | POST   | 로그아웃               |
+| `/auth/refresh`  | POST   | 토큰 갱신              |
+| `/auth/me`       | GET    | 내 정보 조회           |
+
+### OAuth API
+
+| 엔드포인트                        | 메서드 | 설명                    |
+| --------------------------------- | ------ | ----------------------- |
+| `/auth/oauth/{provider}`          | GET    | OAuth 로그인 리다이렉트 |
+| `/auth/oauth/{provider}/callback` | GET    | OAuth 콜백 처리         |
+
+## 📝 타입 정의
+
+```typescript
+// 사용자 유형
+type UserType = "CUSTOMER" | "SELLER" | "ADMIN";
+
+// OAuth 제공자
+type ProviderType = "KAKAO" | "NAVER" | "GOOGLE";
+
+// 로그인 응답
+interface LoginResponse {
+  authId: string;
+  email: string;
+  userType: UserType;
+  accessToken: string;
+  refreshToken: string;
+  accessTokenExpiresAt: string;
+  refreshTokenExpiresAt: string;
+}
+```
+
+## 🔧 개발 노트
+
+### React 19 호환성
+
+- `useEffect` 내 동기적 `setState` 호출 금지
+- `useSyncExternalStore` 패턴으로 외부 상태 관리
+- 하이드레이션 불일치 방지
+
+### Tailwind CSS 클래스
+
+- 여러 줄 클래스 작성 시 `cn()` 유틸리티 사용
+- Windows CRLF 줄바꿈 문제 방지
