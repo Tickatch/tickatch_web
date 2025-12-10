@@ -3,6 +3,7 @@
 import { useState, FormEvent } from "react";
 import Image from "next/image";
 import { UserType, ProviderType } from "@/types/auth";
+import { cn } from "@/lib/utils";
 
 interface LoginCardProps {
   userType: UserType;
@@ -16,7 +17,6 @@ interface LoginCardProps {
   error?: string | null;
 }
 
-// 유저 타입별 설정
 const loginConfig: Record<
   UserType,
   {
@@ -50,7 +50,6 @@ const loginConfig: Record<
   },
 };
 
-// OAuth 제공자 설정
 const oauthProviders: {
   type: ProviderType;
   name: string;
@@ -98,17 +97,19 @@ export default function LoginCard({
 
   return (
     <div className="w-full max-w-md mx-auto">
-      {/* 카드 */}
       <div
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl 
-                      overflow-hidden border border-gray-200 dark:border-gray-700"
+        className={cn(
+          "bg-white dark:bg-gray-800 rounded-2xl shadow-2xl",
+          "overflow-hidden border border-gray-200 dark:border-gray-700"
+        )}
       >
-        {/* 상단 로고 영역 */}
         <div
-          className="relative h-24 bg-gray-50 dark:bg-gray-700/50
-                        flex items-center justify-center border-b border-gray-200 dark:border-gray-700"
+          className={cn(
+            "relative h-24 bg-gray-50 dark:bg-gray-700/50",
+            "flex items-center justify-center",
+            "border-b border-gray-200 dark:border-gray-700"
+          )}
         >
-          {/* 로고 이미지 */}
           <Image
             src={config.logo}
             alt="Tickatch 로고"
@@ -119,9 +120,7 @@ export default function LoginCard({
           />
         </div>
 
-        {/* 폼 영역 */}
         <div className="p-6 sm:p-8">
-          {/* 타이틀 */}
           <div className="text-center mb-6">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
               {config.title}
@@ -131,19 +130,19 @@ export default function LoginCard({
             </p>
           </div>
 
-          {/* 에러 메시지 */}
           {error && (
             <div
-              className="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/30 
-                           border border-red-200 dark:border-red-800"
+              className={cn(
+                "mb-4 p-3 rounded-lg",
+                "bg-red-50 dark:bg-red-900/30",
+                "border border-red-200 dark:border-red-800"
+              )}
             >
               <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
             </div>
           )}
 
-          {/* 로그인 폼 */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* 이메일 */}
             <div>
               <label
                 htmlFor="email"
@@ -157,18 +156,19 @@ export default function LoginCard({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-lg
-                          bg-gray-50 dark:bg-gray-700
-                          border border-gray-300 dark:border-gray-600
-                          text-gray-900 dark:text-white
-                          placeholder-gray-500 dark:placeholder-gray-400
-                          focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                          transition-colors duration-200"
+                className={cn(
+                  "w-full px-4 py-3 rounded-lg",
+                  "bg-gray-50 dark:bg-gray-700",
+                  "border border-gray-300 dark:border-gray-600",
+                  "text-gray-900 dark:text-white",
+                  "placeholder-gray-500 dark:placeholder-gray-400",
+                  "focus:ring-2 focus:ring-blue-500 focus:border-transparent",
+                  "transition-colors duration-200"
+                )}
                 placeholder="email@example.com"
               />
             </div>
 
-            {/* 비밀번호 */}
             <div>
               <label
                 htmlFor="password"
@@ -183,22 +183,25 @@ export default function LoginCard({
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full px-4 py-3 rounded-lg
-                            bg-gray-50 dark:bg-gray-700
-                            border border-gray-300 dark:border-gray-600
-                            text-gray-900 dark:text-white
-                            placeholder-gray-500 dark:placeholder-gray-400
-                            focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                            transition-colors duration-200
-                            pr-12"
+                  className={cn(
+                    "w-full px-4 py-3 rounded-lg pr-12",
+                    "bg-gray-50 dark:bg-gray-700",
+                    "border border-gray-300 dark:border-gray-600",
+                    "text-gray-900 dark:text-white",
+                    "placeholder-gray-500 dark:placeholder-gray-400",
+                    "focus:ring-2 focus:ring-blue-500 focus:border-transparent",
+                    "transition-colors duration-200"
+                  )}
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2
-                            text-gray-500 hover:text-gray-700 
-                            dark:text-gray-400 dark:hover:text-gray-200"
+                  className={cn(
+                    "absolute right-3 top-1/2 -translate-y-1/2",
+                    "text-gray-500 hover:text-gray-700",
+                    "dark:text-gray-400 dark:hover:text-gray-200"
+                  )}
                 >
                   {showPassword ? (
                     <svg
@@ -239,15 +242,13 @@ export default function LoginCard({
               </div>
             </div>
 
-            {/* 로그인 유지 */}
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 
-                            text-blue-600 focus:ring-blue-500"
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <span className="text-sm text-gray-600 dark:text-gray-400">
                   로그인 유지
@@ -261,15 +262,16 @@ export default function LoginCard({
               </button>
             </div>
 
-            {/* 로그인 버튼 */}
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full py-3 rounded-lg text-white font-medium
-                         ${config.buttonColor}
-                         disabled:opacity-50 disabled:cursor-not-allowed
-                         transition-colors duration-200
-                         flex items-center justify-center gap-2`}
+              className={cn(
+                "w-full py-3 rounded-lg text-white font-medium",
+                config.buttonColor,
+                "disabled:opacity-50 disabled:cursor-not-allowed",
+                "transition-colors duration-200",
+                "flex items-center justify-center gap-2"
+              )}
             >
               {isLoading ? (
                 <>
@@ -297,10 +299,8 @@ export default function LoginCard({
             </button>
           </form>
 
-          {/* OAuth 로그인 (Customer만) */}
           {config.showOAuth && onOAuthLogin && (
             <>
-              {/* 구분선 */}
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-gray-300 dark:border-gray-600" />
@@ -312,16 +312,17 @@ export default function LoginCard({
                 </div>
               </div>
 
-              {/* OAuth 버튼들 */}
               <div className="space-y-3">
                 {oauthProviders.map((provider) => (
                   <button
                     key={provider.type}
                     onClick={() => onOAuthLogin(provider.type)}
-                    className={`w-full py-3 rounded-lg font-medium
-                               ${provider.color}
-                               transition-colors duration-200
-                               flex items-center justify-center gap-2`}
+                    className={cn(
+                      "w-full py-3 rounded-lg font-medium",
+                      provider.color,
+                      "transition-colors duration-200",
+                      "flex items-center justify-center gap-2"
+                    )}
                   >
                     <span className="text-lg">{provider.icon}</span>
                     <span>{provider.name}로 로그인</span>
@@ -331,7 +332,6 @@ export default function LoginCard({
             </>
           )}
 
-          {/* 회원가입 링크 (Customer만) */}
           {userType === "CUSTOMER" && (
             <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
               계정이 없으신가요?{" "}

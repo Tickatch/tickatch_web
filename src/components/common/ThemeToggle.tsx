@@ -1,6 +1,7 @@
 "use client";
 
 import { useTheme } from "@/providers/ThemeProvider";
+import { cn } from "@/lib/utils";
 
 export default function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
@@ -8,20 +9,19 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="relative w-10 h-10 rounded-lg flex items-center justify-center
-                 bg-gray-100 dark:bg-gray-800 
-                 hover:bg-gray-200 dark:hover:bg-gray-700
-                 transition-colors duration-200"
+      className={cn(
+        "relative w-10 h-10 rounded-lg flex items-center justify-center",
+        "bg-gray-100 dark:bg-gray-800",
+        "hover:bg-gray-200 dark:hover:bg-gray-700",
+        "transition-colors duration-200"
+      )}
       aria-label={theme === "light" ? "다크 모드로 전환" : "라이트 모드로 전환"}
     >
-      {/* 해 아이콘 (라이트 모드) */}
       <svg
-        className={`w-5 h-5 text-amber-500 absolute transition-all duration-300
-                    ${
-                      theme === "light"
-                        ? "opacity-100 rotate-0"
-                        : "opacity-0 rotate-90"
-                    }`}
+        className={cn(
+          "w-5 h-5 text-amber-500 absolute transition-all duration-300",
+          theme === "light" ? "opacity-100 rotate-0" : "opacity-0 rotate-90"
+        )}
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -34,14 +34,11 @@ export default function ThemeToggle() {
         />
       </svg>
 
-      {/* 달 아이콘 (다크 모드) */}
       <svg
-        className={`w-5 h-5 text-blue-400 absolute transition-all duration-300
-                    ${
-                      theme === "dark"
-                        ? "opacity-100 rotate-0"
-                        : "opacity-0 -rotate-90"
-                    }`}
+        className={cn(
+          "w-5 h-5 text-blue-400 absolute transition-all duration-300",
+          theme === "dark" ? "opacity-100 rotate-0" : "opacity-0 -rotate-90"
+        )}
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"

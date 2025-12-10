@@ -3,8 +3,6 @@
 import {
   createContext,
   useContext,
-  useState,
-  useEffect,
   ReactNode,
   useCallback,
   useSyncExternalStore,
@@ -19,7 +17,6 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-// 테마 저장소 (외부 상태 관리)
 const themeStore = {
   theme: "light" as Theme,
   listeners: new Set<() => void>(),
@@ -39,11 +36,8 @@ const themeStore = {
 
   setTheme(newTheme: Theme) {
     themeStore.theme = newTheme;
-    // DOM 업데이트
     document.documentElement.classList.toggle("dark", newTheme === "dark");
-    // 쿠키 저장
     document.cookie = `theme=${newTheme}; path=/; max-age=${60 * 60 * 24 * 30}`;
-    // 리스너 알림
     themeStore.listeners.forEach((listener) => listener());
   },
 
@@ -68,7 +62,6 @@ const themeStore = {
   },
 };
 
-// 클라이언트에서 초기화
 if (typeof window !== "undefined") {
   themeStore.initialize();
 }

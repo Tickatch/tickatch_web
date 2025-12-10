@@ -1,6 +1,7 @@
 "use client";
 
 import { Notification } from "@/types/auth";
+import { cn } from "@/lib/utils";
 
 interface NotificationDropdownProps {
   notifications: Notification[];
@@ -17,7 +18,6 @@ export default function NotificationDropdown({
   onMarkAllAsRead,
   onRemove,
 }: NotificationDropdownProps) {
-  // 시간 포맷팅
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -38,23 +38,20 @@ export default function NotificationDropdown({
       onMarkAsRead(notification.id);
     }
     if (notification.link) {
-      // TODO: 라우팅 처리
       console.log("Navigate to:", notification.link);
     }
   };
 
   return (
     <div
-      className="absolute right-0 top-12 w-80 max-h-96 overflow-hidden
-                    bg-white dark:bg-gray-800 
-                    rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700
-                    z-50 animate-in fade-in slide-in-from-top-2 duration-200"
+      className={cn(
+        "absolute right-0 top-12 w-80 max-h-96 overflow-hidden",
+        "bg-white dark:bg-gray-800",
+        "rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700",
+        "z-50 animate-in fade-in slide-in-from-top-2 duration-200"
+      )}
     >
-      {/* 헤더 */}
-      <div
-        className="flex items-center justify-between px-4 py-3 
-                      border-b border-gray-200 dark:border-gray-700"
-      >
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
         <h3 className="font-semibold text-gray-900 dark:text-white">알림</h3>
         <button
           onClick={onMarkAllAsRead}
@@ -64,7 +61,6 @@ export default function NotificationDropdown({
         </button>
       </div>
 
-      {/* 알림 목록 */}
       <div className="overflow-y-auto max-h-72">
         {notifications.length === 0 ? (
           <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
@@ -75,17 +71,14 @@ export default function NotificationDropdown({
             <div
               key={notification.id}
               onClick={() => handleNotificationClick(notification)}
-              className={`px-4 py-3 border-b border-gray-100 dark:border-gray-700 
-                         cursor-pointer transition-colors
-                         hover:bg-gray-50 dark:hover:bg-gray-700/50
-                         ${
-                           !notification.read
-                             ? "bg-blue-50/50 dark:bg-blue-900/20"
-                             : ""
-                         }`}
+              className={cn(
+                "px-4 py-3 border-b border-gray-100 dark:border-gray-700",
+                "cursor-pointer transition-colors",
+                "hover:bg-gray-50 dark:hover:bg-gray-700/50",
+                !notification.read && "bg-blue-50/50 dark:bg-blue-900/20"
+              )}
             >
               <div className="flex items-start gap-3">
-                {/* 읽지 않음 표시 */}
                 <div className="flex-shrink-0 mt-1.5">
                   {!notification.read && (
                     <div className="w-2 h-2 rounded-full bg-blue-500" />
@@ -93,15 +86,14 @@ export default function NotificationDropdown({
                   {notification.read && <div className="w-2 h-2" />}
                 </div>
 
-                {/* 내용 */}
                 <div className="flex-1 min-w-0">
                   <p
-                    className={`text-sm font-medium truncate
-                                ${
-                                  !notification.read
-                                    ? "text-gray-900 dark:text-white"
-                                    : "text-gray-700 dark:text-gray-300"
-                                }`}
+                    className={cn(
+                      "text-sm font-medium truncate",
+                      !notification.read
+                        ? "text-gray-900 dark:text-white"
+                        : "text-gray-700 dark:text-gray-300"
+                    )}
                   >
                     {notification.title}
                   </p>
@@ -113,14 +105,16 @@ export default function NotificationDropdown({
                   </p>
                 </div>
 
-                {/* 삭제 버튼 */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     onRemove(notification.id);
                   }}
-                  className="flex-shrink-0 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600
-                             text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  className={cn(
+                    "flex-shrink-0 p-1 rounded",
+                    "hover:bg-gray-200 dark:hover:bg-gray-600",
+                    "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  )}
                 >
                   <svg
                     className="w-4 h-4"
@@ -142,13 +136,11 @@ export default function NotificationDropdown({
         )}
       </div>
 
-      {/* 푸터 */}
       {notifications.length > 0 && (
         <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={onClose}
-            className="w-full text-center text-sm text-gray-600 dark:text-gray-400 
-                       hover:text-gray-900 dark:hover:text-white py-1"
+            className="w-full text-center text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white py-1"
           >
             닫기
           </button>
