@@ -155,9 +155,31 @@ export class AuthError extends Error {
 // 싱글톤 export
 export const api = new ApiClient();
 
-// OAuth URL 헬퍼 (독립 함수로도 export)
+export const API_CONFIG = {
+  BASE_URL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1",
+  ENDPOINTS: {
+    LOGIN: "/auth/login",
+    REGISTER: "/auth/register",
+    LOGOUT: "/auth/logout",
+    REFRESH: "/auth/refresh",
+    ME: "/auth/me",
+    CHECK_EMAIL: "/auth/check-email",
+    CHANGE_PASSWORD: "/auth/password",
+    WITHDRAW: "/auth/withdraw",
+    OAUTH_LOGIN: (provider: string) => `/auth/oauth/${provider}`,
+    OAUTH_CALLBACK: (provider: string) => `/auth/oauth/${provider}/callback`,
+    OAUTH_LINK: (provider: string) => `/auth/oauth/${provider}/link`,
+    OAUTH_UNLINK: (provider: string) => `/auth/oauth/${provider}/unlink`,
+    productList: `/products`,
+  },
+} as const;
+
+export function getApiUrl(endpoint: string): string {
+  return `${API_CONFIG.BASE_URL}${endpoint}`;
+}
+
 export function getOAuthLoginUrl(provider: string, rememberMe = false): string {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
-  return `${baseUrl}/auth/oauth/${provider.toLowerCase()}?rememberMe=${rememberMe}`;
+  return `${
+    API_CONFIG.BASE_URL
+  }/auth/oauth/${provider.toLowerCase()}?rememberMe=${rememberMe}`;
 }

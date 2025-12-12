@@ -1,3 +1,5 @@
+"use client";
+
 import {
   createContext,
   useContext,
@@ -9,34 +11,30 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api-client";
+import { LoginResponse, UserType } from "@/types/auth";
 
+// 사용자 정보 (프론트엔드용)
 interface User {
   id: string;
   email: string;
   nickname: string;
 }
 
+// 인증 컨텍스트 타입
 interface AuthContextType {
   user: User | null;
-  userType: string | null;
+  userType: UserType | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (response: LoginResponse) => Promise<void>;
   logout: () => Promise<void>;
 }
 
-interface LoginResponse {
-  accessToken: string;
-  refreshToken: string;
-  userType: string;
-  nickname?: string;
-}
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [userType, setUserType] = useState<string | null>(null);
+  const [userType, setUserType] = useState<UserType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
@@ -76,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // 로그아웃 처리
+  // 로그아웃 처리 (인증 에러 시)
   const handleAuthError = useCallback(() => {
     accessTokenRef.current = null;
     refreshTokenRef.current = null;
@@ -96,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [refreshAccessToken, handleAuthError]);
 
-  // 초기 인증 상태 확인
+  // 초기 인증 상태 확인 (페이지 로드 시)
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -110,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           refreshTokenRef.current = data.refreshToken;
         }
       } catch {
-        // 무시
+        // 인증 실패 시 무시
       } finally {
         setIsLoading(false);
       }
@@ -119,13 +117,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuth();
   }, []);
 
-  // 로그인
+  // 로그인 (LoginResponse를 받아서 처리)
   const login = useCallback(async (response: LoginResponse) => {
+    // 토큰 저장
     accessTokenRef.current = response.accessToken;
     refreshTokenRef.current = response.refreshToken;
     setUserType(response.userType);
 
-    // 쿠키에 저장
+    // 쿠키에 저장 (서버 API Route 통해)
     await fetch("/api/auth/session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -134,11 +133,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // 사용자 정보 조회
     try {
-      const user = await api.get<User>("/auth/me");
-      setUser(user);
+      const userData = await api.get<User>("/auth/me");
+      setUser(userData);
     } catch {
-      // 에러 시 기본 정보만
-      setUser({ id: "", email: "", nickname: response.nickname || "" });
+      // 에러 시 LoginResponse에서 기본 정보 추출
+      setUser({
+        id: response.authId,
+        email: response.email,
+        nickname: response.email.split("@")[0],
+      });
     }
   }, []);
 
@@ -154,18 +157,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [router]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        userType,
-        isAuthenticated: !!user,
-        isLoading,
-        login,
-        logout,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+      <AuthContext.Provider
+          value={{
+            user,
+            userType,
+            isAuthenticated: !!user,
+            isLoading,
+            login,
+            logout,
+          }}
+      >
+        {children}
+      </AuthContext.Provider>
   );
 }
 

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/common/Header";
 import LoginCard from "@/components/auth/LoginCard";
 import { LoginResponse } from "@/types/auth";
-import { getApiUrl, API_CONFIG } from "@/lib/api-config";
+import { getApiUrl, API_CONFIG } from "@/lib/api-client";
 import { useAuth } from "@/providers/AuthProvider";
 
 export default function SellerLoginPage() {

@@ -121,6 +121,7 @@ export default function LoginCard({
             "border-b border-gray-200 dark:border-gray-700"
           )}
         >
+          <Link href="/">
           <Image
             src={config.logo}
             alt="Tickatch 로고"
@@ -132,6 +133,7 @@ export default function LoginCard({
             )}
             priority
           />
+          </Link>
         </div>
 
         <div className="p-6 sm:p-8">

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/common/Header";
 import LoginCard from "@/components/auth/LoginCard";
 import { ProviderType, LoginResponse } from "@/types/auth";
-import { getApiUrl, API_CONFIG } from "@/lib/api-config";
+import { getApiUrl, API_CONFIG } from "@/lib/api-client";
 import { useOAuthPopup } from "@/hooks/useOAuthPopup";
 import { useAuth } from "@/providers/AuthProvider";
 
@@ -118,7 +118,7 @@ export default function CustomerLoginPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header userType="CUSTOMER" />
+      {/*<Header userType="CUSTOMER" />*/}
 
       <main className="flex-1 flex items-center justify-center p-4">
         <LoginCard
