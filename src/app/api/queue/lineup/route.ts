@@ -1,13 +1,18 @@
-// app/api/queue/lineup/route.ts
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  getAccessTokenFromRequest,
+  createAuthHeaders,
+} from "@/lib/auth-utils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-export async function POST() {
+/**
+ * POST /api/queue/lineup - 대기열 등록
+ * 인증 필수
+ */
+export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const accessToken = cookieStore.get("access_token")?.value;
+    const accessToken = await getAccessTokenFromRequest(request);
 
     if (!accessToken) {
       return NextResponse.json(
@@ -18,10 +23,7 @@ export async function POST() {
 
     const res = await fetch(`${API_URL}/queue/lineup`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
+      headers: createAuthHeaders(accessToken),
     });
 
     const data = await res.json();

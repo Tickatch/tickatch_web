@@ -1,13 +1,18 @@
-// app/api/queue/status/route.ts
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  getAccessTokenFromRequest,
+  createAuthHeaders,
+} from "@/lib/auth-utils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-export async function GET() {
+/**
+ * GET /api/queue/status - 대기열 상태 확인
+ * 인증 필수
+ */
+export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const accessToken = cookieStore.get("access_token")?.value;
+    const accessToken = await getAccessTokenFromRequest(request);
 
     if (!accessToken) {
       return NextResponse.json(
@@ -18,9 +23,7 @@ export async function GET() {
 
     const res = await fetch(`${API_URL}/queue/status`, {
       method: "GET",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+      headers: createAuthHeaders(accessToken),
     });
 
     const data = await res.json();

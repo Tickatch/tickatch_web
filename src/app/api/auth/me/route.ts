@@ -1,93 +1,62 @@
-import { NextResponse } from "next/server";
+// src/app/api/auth/me/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { TOKEN_NAMES, getUserTypeFromPath } from "@/lib/auth-utils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-export async function GET() {
+/**
+ * GET /api/auth/me - 현재 사용자 정보 조회
+ * 경로 기반으로 유저 타입 결정 후 해당 토큰 사용
+ */
+export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies();
-    const accessToken = cookieStore.get("access_token")?.value;
-    const refreshToken = cookieStore.get("refresh_token")?.value;
-    const userType = cookieStore.get("user_type")?.value;
 
-    // accessToken 없으면 refresh 시도
+    // Referer에서 현재 경로 추출 (어느 페이지에서 요청했는지)
+    const referer = request.headers.get("referer") || "";
+    const url = new URL(referer, request.url);
+    const pathname = url.pathname;
+
+    // 경로 기반으로 userType 결정
+    const userType = getUserTypeFromPath(pathname);
+    const tokenNames = TOKEN_NAMES[userType];
+
+    const accessToken = cookieStore.get(tokenNames.accessToken)?.value;
+
     if (!accessToken) {
-      if (!refreshToken) {
-        return NextResponse.json({ user: null, userType: null });
-      }
-
-      // refresh 시도
-      const refreshRes = await fetch(`${API_URL}/auth/refresh`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refreshToken }),
+      return NextResponse.json({
+        user: null,
+        userType: null,
+        isAuthenticated: false,
       });
-
-      if (!refreshRes.ok) {
-        const response = NextResponse.json({ user: null, userType: null });
-        response.cookies.delete("refresh_token");
-        response.cookies.delete("user_type");
-        return response;
-      }
-
-      const tokens = await refreshRes.json();
-
-      // 새 토큰으로 사용자 정보 조회
-      const userRes = await fetch(`${API_URL}/auth/me`, {
-        headers: { Authorization: `Bearer ${tokens.accessToken}` },
-      });
-
-      if (!userRes.ok) {
-        return NextResponse.json({ user: null, userType: null });
-      }
-
-      const user = await userRes.json();
-      const response = NextResponse.json({ user, userType });
-
-      // 새 토큰 쿠키 저장
-      const maxAge = getTokenRemainingSeconds(tokens.accessToken) || 5 * 60;
-      response.cookies.set("access_token", tokens.accessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge,
-      });
-      response.cookies.set("refresh_token", tokens.refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60 * 24 * 7,
-      });
-
-      return response;
     }
 
-    // accessToken 있으면 바로 조회
+    // 사용자 정보 조회
     const response = await fetch(`${API_URL}/auth/me`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     if (!response.ok) {
-      return NextResponse.json({ user: null, userType: null });
+      return NextResponse.json({
+        user: null,
+        userType: null,
+        isAuthenticated: false,
+      });
     }
 
     const user = await response.json();
-    return NextResponse.json({ user, userType });
+    return NextResponse.json({
+      user: user.data || user,
+      userType,
+      isAuthenticated: true,
+    });
   } catch (error) {
     console.error("Auth check error:", error);
-    return NextResponse.json({ user: null, userType: null });
-  }
-}
-
-function getTokenRemainingSeconds(token: string): number | null {
-  try {
-    const payload = token.split(".")[1];
-    const decoded = JSON.parse(Buffer.from(payload, "base64").toString());
-    const remaining = decoded.exp - Math.floor(Date.now() / 1000);
-    return remaining > 0 ? remaining : 0;
-  } catch {
-    return null;
+    return NextResponse.json({
+      user: null,
+      userType: null,
+      isAuthenticated: false,
+    });
   }
 }

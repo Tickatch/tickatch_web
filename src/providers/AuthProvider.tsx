@@ -1,3 +1,4 @@
+// src/providers/AuthProvider.tsx
 "use client";
 
 import {
@@ -6,21 +7,17 @@ import {
   useState,
   useEffect,
   useCallback,
-  useRef,
   ReactNode,
 } from "react";
-import { useRouter } from "next/navigation";
-import { api } from "@/lib/api-client";
+import { useRouter, usePathname } from "next/navigation";
 import { LoginResponse, UserType } from "@/types/auth";
 
-// 사용자 정보 (프론트엔드용)
 interface User {
   id: string;
   email: string;
   nickname: string;
 }
 
-// 인증 컨텍스트 타입
 interface AuthContextType {
   user: User | null;
   userType: UserType | null;
@@ -32,129 +29,84 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// 경로에서 유저 타입 추론
+function getUserTypeFromPath(pathname: string): UserType {
+  if (pathname.startsWith("/admin")) return "ADMIN";
+  if (pathname.startsWith("/seller")) return "SELLER";
+  return "CUSTOMER";
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userType, setUserType] = useState<UserType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
 
-  // 토큰 저장 (메모리 + 쿠키)
-  const accessTokenRef = useRef<string | null>(null);
-  const refreshTokenRef = useRef<string | null>(null);
-
-  // 토큰 갱신 함수
-  const refreshAccessToken = useCallback(async (): Promise<string | null> => {
-    if (!refreshTokenRef.current) return null;
-
+  // 현재 경로에 맞는 인증 상태 확인
+  const checkAuth = useCallback(async () => {
     try {
-      const response = await fetch("/api/auth/refresh", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refreshToken: refreshTokenRef.current }),
+      const response = await fetch("/api/auth/me", {
+        headers: {
+          // Referer가 자동으로 전송되지만 명시적으로 현재 경로 전달
+          "X-Current-Path": pathname,
+        },
       });
-
-      if (!response.ok) return null;
-
       const data = await response.json();
 
-      // 새 토큰 저장
-      accessTokenRef.current = data.accessToken;
-      refreshTokenRef.current = data.refreshToken;
-
-      // 쿠키에도 저장 (서버 API Route 통해)
-      await fetch("/api/auth/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
-      return data.accessToken;
-    } catch {
-      return null;
-    }
-  }, []);
-
-  // 로그아웃 처리 (인증 에러 시)
-  const handleAuthError = useCallback(() => {
-    accessTokenRef.current = null;
-    refreshTokenRef.current = null;
-    setUser(null);
-    setUserType(null);
-
-    fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
-  }, [router]);
-
-  // API Client에 핸들러 등록
-  useEffect(() => {
-    api.setAuthHandlers({
-      getAccessToken: () => accessTokenRef.current,
-      refreshToken: refreshAccessToken,
-      onAuthError: handleAuthError,
-    });
-  }, [refreshAccessToken, handleAuthError]);
-
-  // 초기 인증 상태 확인 (페이지 로드 시)
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await fetch("/api/auth/me");
-        const data = await response.json();
-
-        if (data.user) {
-          setUser(data.user);
-          setUserType(data.userType);
-          accessTokenRef.current = data.accessToken;
-          refreshTokenRef.current = data.refreshToken;
-        }
-      } catch {
-        // 인증 실패 시 무시
-      } finally {
-        setIsLoading(false);
+      if (data.isAuthenticated && data.user) {
+        setUser(data.user);
+        setUserType(data.userType);
+      } else {
+        setUser(null);
+        setUserType(null);
       }
-    };
+    } catch {
+      setUser(null);
+      setUserType(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [pathname]);
 
+  // 경로 변경 시 해당 경로의 인증 상태 확인
+  useEffect(() => {
+    setIsLoading(true);
     checkAuth();
-  }, []);
+  }, [checkAuth]);
 
-  // 로그인 (LoginResponse를 받아서 처리)
+  // 로그인
   const login = useCallback(async (response: LoginResponse) => {
-    // 토큰 저장
-    accessTokenRef.current = response.accessToken;
-    refreshTokenRef.current = response.refreshToken;
     setUserType(response.userType);
 
-    // 쿠키에 저장 (서버 API Route 통해)
-    await fetch("/api/auth/session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(response),
+    // 사용자 정보 설정
+    setUser({
+      id: response.authId,
+      email: response.email,
+      nickname: response.email.split("@")[0],
     });
-
-    // 사용자 정보 조회
-    try {
-      const userData = await api.get<User>("/auth/me");
-      setUser(userData);
-    } catch {
-      // 에러 시 LoginResponse에서 기본 정보 추출
-      setUser({
-        id: response.authId,
-        email: response.email,
-        nickname: response.email.split("@")[0],
-      });
-    }
   }, []);
 
-  // 로그아웃
+  // 로그아웃 (현재 경로의 유저 타입으로)
   const logout = useCallback(async () => {
-    accessTokenRef.current = null;
-    refreshTokenRef.current = null;
+    const currentUserType = getUserTypeFromPath(pathname);
+
+    await fetch(`/api/auth/logout?userType=${currentUserType}`, {
+      method: "POST",
+    });
+
     setUser(null);
     setUserType(null);
 
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/");
-  }, [router]);
+    // 역할별 리다이렉트
+    if (currentUserType === "ADMIN") {
+      router.push("/admin/login");
+    } else if (currentUserType === "SELLER") {
+      router.push("/seller/login");
+    } else {
+      router.push("/");
+    }
+  }, [pathname, router]);
 
   return (
       <AuthContext.Provider

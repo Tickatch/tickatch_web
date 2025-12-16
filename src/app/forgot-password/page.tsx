@@ -1,61 +1,90 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { API_CONFIG } from "@/lib/api-client";
 import { useTheme } from "@/providers/ThemeProvider";
 import { cn } from "@/lib/utils";
 
-type Step = "email" | "sent" | "reset" | "complete";
-
 export default function CustomerForgotPasswordPage() {
+  const router = useRouter();
   const { theme, toggleTheme } = useTheme();
-  const [step, setStep] = useState<Step>("email");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
-  // 이메일로 인증 코드 발송
-  const handleSendEmail = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!email) {
-      setError("이메일을 입력해주세요.");
+    // 유효성 검사
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("올바른 이메일을 입력해주세요.");
       return;
     }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError("올바른 이메일 형식이 아닙니다.");
+    if (!newPassword || newPassword.length < 8) {
+      setError("비밀번호는 8자 이상이어야 합니다.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("비밀번호가 일치하지 않습니다.");
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}/auth/forgot-password`, {
+      const response = await fetch("/api/auth/find-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, userType: "CUSTOMER" }),
+        body: JSON.stringify({
+          email,
+          newPassword,
+          userType: "CUSTOMER",
+        }),
       });
 
-      const result = await response.json();
+      const data = await response.json();
 
-      if (!result.success) {
-        throw new Error(result.error?.message || "이메일 발송에 실패했습니다.");
+      if (!response.ok) {
+        throw new Error(data.error || "비밀번호 변경에 실패했습니다.");
       }
 
-      setStep("sent");
+      setSuccess(true);
+      setTimeout(() => {
+        router.push("/login");
+      }, 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "이메일 발송에 실패했습니다.");
+      setError(err instanceof Error ? err.message : "비밀번호 변경에 실패했습니다.");
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (success) {
+    return (
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4">
+          <div className="text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+              <svg className="w-8 h-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+              비밀번호가 변경되었습니다!
+            </h2>
+            <p className="text-gray-500 dark:text-gray-400">
+              잠시 후 로그인 페이지로 이동합니다...
+            </p>
+          </div>
+        </div>
+    );
+  }
 
   return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
@@ -110,10 +139,7 @@ export default function CustomerForgotPasswordPage() {
           <div className="w-full max-w-md">
             <div className="text-center mb-6">
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">비밀번호 찾기</h1>
-              <p className="mt-2 text-gray-500 dark:text-gray-400">
-                {step === "email" && "가입한 이메일을 입력해주세요"}
-                {step === "sent" && "이메일을 확인해주세요"}
-              </p>
+              <p className="mt-2 text-gray-500 dark:text-gray-400">새로운 비밀번호를 설정하세요</p>
             </div>
 
             <div className={cn(
@@ -128,110 +154,107 @@ export default function CustomerForgotPasswordPage() {
                   </div>
               )}
 
-              {step === "email" && (
-                  <form onSubmit={handleSendEmail} className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                        이메일
-                      </label>
-                      <input
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="example@email.com"
-                          disabled={isLoading}
-                          className={cn(
-                              "w-full px-4 py-3 rounded-xl",
-                              "bg-gray-50 dark:bg-gray-800",
-                              "border border-gray-200 dark:border-gray-700",
-                              "text-gray-900 dark:text-white",
-                              "placeholder:text-gray-400",
-                              "focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500",
-                              "disabled:opacity-50"
-                          )}
-                      />
-                    </div>
-
-                    <button
-                        type="submit"
-                        disabled={isLoading}
-                        className={cn(
-                            "w-full py-3.5 px-4 rounded-xl",
-                            "bg-gradient-to-r from-orange-500 to-rose-500",
-                            "hover:from-orange-600 hover:to-rose-600",
-                            "text-white font-semibold",
-                            "shadow-lg shadow-orange-500/25",
-                            "disabled:opacity-50 disabled:cursor-not-allowed",
-                            "transition-all duration-200"
-                        )}
-                    >
-                      {isLoading ? (
-                          <span className="flex items-center justify-center gap-2">
-                      <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      발송 중...
-                    </span>
-                      ) : (
-                          "비밀번호 재설정 이메일 발송"
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* 이메일 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    가입된 이메일
+                  </label>
+                  <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="example@email.com"
+                      disabled={isLoading}
+                      className={cn(
+                          "w-full px-4 py-3 rounded-xl",
+                          "bg-gray-50 dark:bg-gray-800",
+                          "border border-gray-200 dark:border-gray-700",
+                          "text-gray-900 dark:text-white",
+                          "placeholder:text-gray-400",
+                          "focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500",
+                          "disabled:opacity-50"
                       )}
-                    </button>
-                  </form>
-              )}
+                  />
+                </div>
 
-              {step === "sent" && (
-                  <div className="text-center">
-                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                      <svg className="w-8 h-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                      이메일을 발송했습니다
-                    </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                      <span className="font-medium text-gray-700 dark:text-gray-300">{email}</span>
-                      <br />
-                      으로 비밀번호 재설정 링크를 발송했습니다.
-                      <br />
-                      이메일을 확인해주세요.
-                    </p>
+                {/* 새 비밀번호 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    새 비밀번호
+                  </label>
+                  <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="8자 이상 입력"
+                      disabled={isLoading}
+                      className={cn(
+                          "w-full px-4 py-3 rounded-xl",
+                          "bg-gray-50 dark:bg-gray-800",
+                          "border border-gray-200 dark:border-gray-700",
+                          "text-gray-900 dark:text-white",
+                          "placeholder:text-gray-400",
+                          "focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500",
+                          "disabled:opacity-50"
+                      )}
+                  />
+                </div>
 
-                    <div className="space-y-3">
-                      <button
-                          onClick={() => setStep("email")}
-                          className={cn(
-                              "w-full py-3 px-4 rounded-xl",
-                              "bg-gray-100 dark:bg-gray-800",
-                              "text-gray-700 dark:text-gray-200 font-medium",
-                              "hover:bg-gray-200 dark:hover:bg-gray-700",
-                              "transition-colors"
-                          )}
-                      >
-                        다른 이메일로 시도
-                      </button>
+                {/* 새 비밀번호 확인 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    새 비밀번호 확인
+                  </label>
+                  <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="새 비밀번호 재입력"
+                      disabled={isLoading}
+                      className={cn(
+                          "w-full px-4 py-3 rounded-xl",
+                          "bg-gray-50 dark:bg-gray-800",
+                          "border border-gray-200 dark:border-gray-700",
+                          "text-gray-900 dark:text-white",
+                          "placeholder:text-gray-400",
+                          "focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500",
+                          "disabled:opacity-50"
+                      )}
+                  />
+                </div>
 
-                      <Link
-                          href="/login"
-                          className={cn(
-                              "block w-full py-3 px-4 rounded-xl text-center",
-                              "bg-gradient-to-r from-orange-500 to-rose-500",
-                              "hover:from-orange-600 hover:to-rose-600",
-                              "text-white font-semibold",
-                              "transition-all"
-                          )}
-                      >
-                        로그인 페이지로 이동
-                      </Link>
-                    </div>
-                  </div>
-              )}
+                {/* 변경 버튼 */}
+                <button
+                    type="submit"
+                    disabled={isLoading}
+                    className={cn(
+                        "w-full py-3.5 px-4 rounded-xl mt-2",
+                        "bg-gradient-to-r from-orange-500 to-rose-500",
+                        "hover:from-orange-600 hover:to-rose-600",
+                        "text-white font-semibold",
+                        "shadow-lg shadow-orange-500/25",
+                        "disabled:opacity-50 disabled:cursor-not-allowed",
+                        "transition-all duration-200"
+                    )}
+                >
+                  {isLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    변경 중...
+                  </span>
+                  ) : (
+                      "비밀번호 변경"
+                  )}
+                </button>
+              </form>
 
               <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                비밀번호가 기억나셨나요?{" "}
                 <Link href="/login" className="text-orange-500 hover:text-orange-600 font-medium">
-                  로그인
+                  로그인 페이지로 돌아가기
                 </Link>
               </p>
             </div>

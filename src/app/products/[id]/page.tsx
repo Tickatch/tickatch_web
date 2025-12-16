@@ -133,12 +133,12 @@ export default function ProductDetailPage() {
 
   const handleReservation = () => {
     if (!isAuthenticated) {
-      router.push(`/login?redirect=/products/${productId}`);
+      router.push(`/login?redirect=/products/${productId}/reservation`);
       return;
     }
 
-    // 대기열 페이지로 이동
-    router.push(`/queue?productId=${productId}`);
+    // 예매 페이지로 이동 (좌석 선택)
+    router.push(`/products/${productId}/reservation`);
   };
 
   const formatPrice = (price: number) => {

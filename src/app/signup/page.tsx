@@ -4,126 +4,121 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { API_CONFIG } from "@/lib/api-client";
 import { useTheme } from "@/providers/ThemeProvider";
+import { useAuth } from "@/providers/AuthProvider";
+import { LoginResponse } from "@/types/auth";
 import { cn } from "@/lib/utils";
-
-interface SignupForm {
-  email: string;
-  password: string;
-  passwordConfirm: string;
-  nickname: string;
-  agreeTerms: boolean;
-  agreePrivacy: boolean;
-  agreeMarketing: boolean;
-}
 
 export default function CustomerSignupPage() {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
+  const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [emailAvailable, setEmailAvailable] = useState<boolean | null>(null);
 
-  const [form, setForm] = useState<SignupForm>({
-    email: "",
-    password: "",
-    passwordConfirm: "",
-    nickname: "",
-    agreeTerms: false,
-    agreePrivacy: false,
-    agreeMarketing: false,
-  });
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [agreePrivacy, setAgreePrivacy] = useState(false);
 
-  const updateForm = (field: keyof SignupForm, value: string | boolean) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+  // 이메일 중복 확인
+  const handleCheckEmail = async () => {
+    if (!email) {
+      setError("이메일을 입력해주세요.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("올바른 이메일 형식이 아닙니다.");
+      return;
+    }
+
+    setIsCheckingEmail(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/auth/check-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, userType: "CUSTOMER" }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "이메일 확인에 실패했습니다.");
+      }
+
+      setEmailAvailable(data.available);
+      if (!data.available) {
+        setError("이미 사용 중인 이메일입니다.");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "이메일 확인에 실패했습니다.");
+    } finally {
+      setIsCheckingEmail(false);
+    }
   };
 
-  const validateForm = (): string | null => {
-    if (!form.email) return "이메일을 입력해주세요.";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return "올바른 이메일 형식이 아닙니다.";
-    if (!form.password) return "비밀번호를 입력해주세요.";
-    if (form.password.length < 8) return "비밀번호는 8자 이상이어야 합니다.";
-    if (form.password !== form.passwordConfirm) return "비밀번호가 일치하지 않습니다.";
-    if (!form.nickname) return "닉네임을 입력해주세요.";
-    if (form.nickname.length < 2) return "닉네임은 2자 이상이어야 합니다.";
-    if (!form.agreeTerms) return "이용약관에 동의해주세요.";
-    if (!form.agreePrivacy) return "개인정보처리방침에 동의해주세요.";
-    return null;
-  };
-
+  // 회원가입
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    const validationError = validateForm();
-    if (validationError) {
-      setError(validationError);
+    // 유효성 검사
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("올바른 이메일을 입력해주세요.");
+      return;
+    }
+    if (emailAvailable === false) {
+      setError("이미 사용 중인 이메일입니다.");
+      return;
+    }
+    if (!password || password.length < 8) {
+      setError("비밀번호는 8자 이상이어야 합니다.");
+      return;
+    }
+    if (password !== passwordConfirm) {
+      setError("비밀번호가 일치하지 않습니다.");
+      return;
+    }
+    if (!agreeTerms || !agreePrivacy) {
+      setError("필수 약관에 동의해주세요.");
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}/auth/register`, {
+      const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: form.email,
-          password: form.password,
-          nickname: form.nickname,
+          email,
+          password,
           userType: "CUSTOMER",
-          agreeMarketing: form.agreeMarketing,
+          rememberMe,
         }),
       });
 
-      const result = await response.json();
+      const data = await response.json();
 
-      if (!result.success) {
-        throw new Error(result.error?.message || "회원가입에 실패했습니다.");
+      if (!response.ok) {
+        throw new Error(data.error || "회원가입에 실패했습니다.");
       }
 
-      setSuccess(true);
-      setTimeout(() => {
-        router.push("/login");
-      }, 2000);
+      // 자동 로그인
+      await login(data as LoginResponse);
+      router.push("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "회원가입에 실패했습니다.");
     } finally {
       setIsLoading(false);
     }
   };
-
-  const handleAgreeAll = (checked: boolean) => {
-    setForm((prev) => ({
-      ...prev,
-      agreeTerms: checked,
-      agreePrivacy: checked,
-      agreeMarketing: checked,
-    }));
-  };
-
-  const isAllAgreed = form.agreeTerms && form.agreePrivacy && form.agreeMarketing;
-
-  if (success) {
-    return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4">
-          <div className="text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-              <svg className="w-8 h-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-              회원가입이 완료되었습니다!
-            </h2>
-            <p className="text-gray-500 dark:text-gray-400">
-              잠시 후 로그인 페이지로 이동합니다...
-            </p>
-          </div>
-        </div>
-    );
-  }
 
   return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
@@ -199,22 +194,47 @@ export default function CustomerSignupPage() {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                     이메일 <span className="text-red-500">*</span>
                   </label>
-                  <input
-                      type="email"
-                      value={form.email}
-                      onChange={(e) => updateForm("email", e.target.value)}
-                      placeholder="example@email.com"
-                      disabled={isLoading}
-                      className={cn(
-                          "w-full px-4 py-3 rounded-xl",
-                          "bg-gray-50 dark:bg-gray-800",
-                          "border border-gray-200 dark:border-gray-700",
-                          "text-gray-900 dark:text-white",
-                          "placeholder:text-gray-400",
-                          "focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500",
-                          "disabled:opacity-50"
-                      )}
-                  />
+                  <div className="flex gap-2">
+                    <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => {
+                          setEmail(e.target.value);
+                          setEmailAvailable(null);
+                        }}
+                        placeholder="example@email.com"
+                        disabled={isLoading}
+                        className={cn(
+                            "flex-1 px-4 py-3 rounded-xl",
+                            "bg-gray-50 dark:bg-gray-800",
+                            "border",
+                            emailAvailable === true && "border-green-500",
+                            emailAvailable === false && "border-red-500",
+                            emailAvailable === null && "border-gray-200 dark:border-gray-700",
+                            "text-gray-900 dark:text-white",
+                            "placeholder:text-gray-400",
+                            "focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500",
+                            "disabled:opacity-50"
+                        )}
+                    />
+                    <button
+                        type="button"
+                        onClick={handleCheckEmail}
+                        disabled={isCheckingEmail || isLoading}
+                        className={cn(
+                            "px-4 py-3 rounded-xl text-sm font-medium whitespace-nowrap",
+                            "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200",
+                            "hover:bg-gray-200 dark:hover:bg-gray-700",
+                            "disabled:opacity-50",
+                            "transition-colors"
+                        )}
+                    >
+                      {isCheckingEmail ? "확인중..." : "중복확인"}
+                    </button>
+                  </div>
+                  {emailAvailable === true && (
+                      <p className="mt-1 text-sm text-green-600 dark:text-green-400">사용 가능한 이메일입니다.</p>
+                  )}
                 </div>
 
                 {/* 비밀번호 */}
@@ -224,8 +244,8 @@ export default function CustomerSignupPage() {
                   </label>
                   <input
                       type="password"
-                      value={form.password}
-                      onChange={(e) => updateForm("password", e.target.value)}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                       placeholder="8자 이상 입력"
                       disabled={isLoading}
                       className={cn(
@@ -247,8 +267,8 @@ export default function CustomerSignupPage() {
                   </label>
                   <input
                       type="password"
-                      value={form.passwordConfirm}
-                      onChange={(e) => updateForm("passwordConfirm", e.target.value)}
+                      value={passwordConfirm}
+                      onChange={(e) => setPasswordConfirm(e.target.value)}
                       placeholder="비밀번호 재입력"
                       disabled={isLoading}
                       className={cn(
@@ -263,78 +283,43 @@ export default function CustomerSignupPage() {
                   />
                 </div>
 
-                {/* 닉네임 */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                    닉네임 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                      type="text"
-                      value={form.nickname}
-                      onChange={(e) => updateForm("nickname", e.target.value)}
-                      placeholder="2자 이상 입력"
-                      disabled={isLoading}
-                      className={cn(
-                          "w-full px-4 py-3 rounded-xl",
-                          "bg-gray-50 dark:bg-gray-800",
-                          "border border-gray-200 dark:border-gray-700",
-                          "text-gray-900 dark:text-white",
-                          "placeholder:text-gray-400",
-                          "focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500",
-                          "disabled:opacity-50"
-                      )}
-                  />
-                </div>
-
                 {/* 약관 동의 */}
-                <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <label className="flex items-center gap-3 cursor-pointer mb-3">
+                <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
                     <input
                         type="checkbox"
-                        checked={isAllAgreed}
-                        onChange={(e) => handleAgreeAll(e.target.checked)}
-                        className="w-5 h-5 rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+                        checked={agreeTerms}
+                        onChange={(e) => setAgreeTerms(e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500"
                     />
-                    <span className="font-medium text-gray-900 dark:text-white">전체 동의</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                    [필수] 이용약관 동의
+                  </span>
                   </label>
 
-                  <div className="ml-8 space-y-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                          type="checkbox"
-                          checked={form.agreeTerms}
-                          onChange={(e) => updateForm("agreeTerms", e.target.checked)}
-                          className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500"
-                      />
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
-                      [필수] 이용약관 동의
-                    </span>
-                    </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                        type="checkbox"
+                        checked={agreePrivacy}
+                        onChange={(e) => setAgreePrivacy(e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+                    />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                    [필수] 개인정보처리방침 동의
+                  </span>
+                  </label>
 
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                          type="checkbox"
-                          checked={form.agreePrivacy}
-                          onChange={(e) => updateForm("agreePrivacy", e.target.checked)}
-                          className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500"
-                      />
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
-                      [필수] 개인정보처리방침 동의
-                    </span>
-                    </label>
-
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                          type="checkbox"
-                          checked={form.agreeMarketing}
-                          onChange={(e) => updateForm("agreeMarketing", e.target.checked)}
-                          className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500"
-                      />
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
-                      [선택] 마케팅 정보 수신 동의
-                    </span>
-                    </label>
-                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={(e) => setRememberMe(e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+                    />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                    로그인 상태 유지
+                  </span>
+                  </label>
                 </div>
 
                 {/* 가입 버튼 */}
@@ -342,7 +327,7 @@ export default function CustomerSignupPage() {
                     type="submit"
                     disabled={isLoading}
                     className={cn(
-                        "w-full py-3.5 px-4 rounded-xl mt-6",
+                        "w-full py-3.5 px-4 rounded-xl mt-4",
                         "bg-gradient-to-r from-orange-500 to-rose-500",
                         "hover:from-orange-600 hover:to-rose-600",
                         "text-white font-semibold",

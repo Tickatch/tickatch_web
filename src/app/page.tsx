@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import Link from "next/link";
 import Header from "@/components/common/Header";
 import HeroBanner from "@/components/home/HeroBanner";
 import { BannerItem, ProductResponse, productToBannerItem } from "@/types/product";
@@ -176,12 +177,12 @@ export default function HomePage() {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
                 WHAT&apos;S HOT
               </h2>
-              <a
+              <Link
                   href="/products"
                   className="text-sm text-gray-500 dark:text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 transition-colors"
               >
                 더보기 →
-              </a>
+              </Link>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {/* 플레이스홀더 카드들 - 추후 상품 카드 컴포넌트로 교체 */}
@@ -205,12 +206,12 @@ export default function HomePage() {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
                 콘서트
               </h2>
-              <a
-                  href="/category/concert"
+              <Link
+                  href="/products?type=CONCERT"
                   className="text-sm text-gray-500 dark:text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 transition-colors"
               >
                 더보기 →
-              </a>
+              </Link>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -233,12 +234,12 @@ export default function HomePage() {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
                 뮤지컬
               </h2>
-              <a
-                  href="/category/musical"
+              <Link
+                  href="/products?type=MUSICAL"
                   className="text-sm text-gray-500 dark:text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 transition-colors"
               >
                 더보기 →
-              </a>
+              </Link>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -271,19 +272,19 @@ export default function HomePage() {
                 <h4 className="text-white font-medium mb-4">고객센터</h4>
                 <ul className="space-y-2 text-sm">
                   <li>
-                    <a href="/help" className="hover:text-white transition-colors">
+                    <Link href="/help" className="hover:text-white transition-colors">
                       자주 묻는 질문
-                    </a>
+                    </Link>
                   </li>
                   <li>
-                    <a href="/notice" className="hover:text-white transition-colors">
+                    <Link href="/notice" className="hover:text-white transition-colors">
                       공지사항
-                    </a>
+                    </Link>
                   </li>
                   <li>
-                    <a href="/contact" className="hover:text-white transition-colors">
+                    <Link href="/contact" className="hover:text-white transition-colors">
                       1:1 문의
-                    </a>
+                    </Link>
                   </li>
                 </ul>
               </div>
@@ -293,19 +294,19 @@ export default function HomePage() {
                 <h4 className="text-white font-medium mb-4">이용안내</h4>
                 <ul className="space-y-2 text-sm">
                   <li>
-                    <a href="/terms" className="hover:text-white transition-colors">
+                    <Link href="/terms" className="hover:text-white transition-colors">
                       이용약관
-                    </a>
+                    </Link>
                   </li>
                   <li>
-                    <a href="/privacy" className="hover:text-white transition-colors">
+                    <Link href="/privacy" className="hover:text-white transition-colors">
                       개인정보처리방침
-                    </a>
+                    </Link>
                   </li>
                   <li>
-                    <a href="/refund" className="hover:text-white transition-colors">
+                    <Link href="/refund" className="hover:text-white transition-colors">
                       취소/환불 안내
-                    </a>
+                    </Link>
                   </li>
                 </ul>
               </div>
@@ -315,17 +316,17 @@ export default function HomePage() {
                 <h4 className="text-white font-medium mb-4">파트너</h4>
                 <ul className="space-y-2 text-sm">
                   <li>
-                    <a href="/seller" className="hover:text-white transition-colors">
+                    <Link href="/seller" className="hover:text-white transition-colors">
                       판매자 센터
-                    </a>
+                    </Link>
                   </li>
                   <li>
-                    <a
+                    <Link
                         href="/partnership"
                         className="hover:text-white transition-colors"
                     >
                       제휴 문의
-                    </a>
+                    </Link>
                   </li>
                 </ul>
               </div>

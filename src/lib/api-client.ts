@@ -3,7 +3,7 @@ type RefreshFunction = () => Promise<string | null>;
 
 class ApiClient {
   private baseUrl =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
 
   private getAccessToken: () => string | null = () => null;
   private refreshToken: RefreshFunction = async () => null;
@@ -30,8 +30,50 @@ class ApiClient {
       unlink: (provider: string) => `/auth/oauth/${provider}/unlink`,
     },
     reservations: {
-      my: "/reservations/my",
+      create: "/reservations",
       detail: (id: string) => `/reservations/${id}`,
+      list: (reserverId: string) => `/reservations/${reserverId}/list`,
+      cancel: (id: string) => `/reservations/${id}/cancel`,
+      confirmed: (id: string) => `/reservations/${id}/confirmed`,
+    },
+    products: {
+      list: "/products",
+      detail: (id: number) => `/products/${id}`,
+      create: "/products",
+      update: (id: number) => `/products/${id}`,
+      cancel: (id: number) => `/products/${id}`,
+      submit: (id: number) => `/products/${id}/submit`,
+      approve: (id: number) => `/products/${id}/approve`,
+      reject: (id: number) => `/products/${id}/reject`,
+      resubmit: (id: number) => `/products/${id}/resubmit`,
+      schedule: (id: number) => `/products/${id}/schedule`,
+      startSale: (id: number) => `/products/${id}/start-sale`,
+      closeSale: (id: number) => `/products/${id}/close-sale`,
+      complete: (id: number) => `/products/${id}/complete`,
+    },
+    venue: {
+      // ArtHall
+      artHalls: "/arthalls",
+      artHallDetail: (id: number) => `/arthalls/${id}`,
+      artHallStatus: (id: number) => `/arthalls/${id}/status`,
+      // Stage
+      stages: (artHallId: number) => `/arthalls/${artHallId}/stages`,
+      stageDetail: (stageId: number) => `/arthalls/stages/${stageId}`,
+      stageStatus: (stageId: number) => `/arthalls/stages/${stageId}/status`,
+      // StageSeat
+      stageSeats: (stageId: number) => `/arthalls/stages/${stageId}/stage-seats`,
+      stageSeatDetail: (stageSeatId: number) => `/arthalls/stage-seats/${stageSeatId}`,
+      stageSeatUpdate: (seatId: number) => `/arthalls/stages/stage-seats/${seatId}`,
+      stageSeatStatus: "/arthalls/stages/stage-seats/status",
+      stageSeatDelete: "/arthalls/stages/stage-seats",
+    },
+    reservationSeats: {
+      create: "/reservation-seats",
+      update: "/reservation-seats",
+      list: (id: number) => `/products/${id}/reservation-seats`,
+      preempt: (reservationSeatId: number) => `/reservation-seats/${reservationSeatId}/preempt`,
+      reserve: (reservationSeatId: number) => `/reservation-seats/${reservationSeatId}/reserve`,
+      cancel: (reservationSeatId: number) => `/reservation-seats/${reservationSeatId}/cancel`,
     },
     // 필요한 엔드포인트 추가...
   } as const;
@@ -78,8 +120,8 @@ class ApiClient {
   // 핵심 fetch 로직 (401 자동 갱신)
   // ========================================
   private async fetch<T>(
-    endpoint: string,
-    options: RequestInit = {}
+      endpoint: string,
+      options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
 
@@ -128,7 +170,7 @@ class ApiClient {
   // ========================================
   getOAuthLoginUrl(provider: string, rememberMe = false): string {
     return `${
-      this.baseUrl
+        this.baseUrl
     }/auth/oauth/${provider.toLowerCase()}?rememberMe=${rememberMe}`;
   }
 
@@ -166,11 +208,22 @@ export const API_CONFIG = {
     CHECK_EMAIL: "/auth/check-email",
     CHANGE_PASSWORD: "/auth/password",
     WITHDRAW: "/auth/withdraw",
+    FIND_PASSWORD: "/auth/find-password",
     OAUTH_LOGIN: (provider: string) => `/auth/oauth/${provider}`,
     OAUTH_CALLBACK: (provider: string) => `/auth/oauth/${provider}/callback`,
     OAUTH_LINK: (provider: string) => `/auth/oauth/${provider}/link`,
     OAUTH_UNLINK: (provider: string) => `/auth/oauth/${provider}/unlink`,
-    productList: `/products`,
+    // Products
+    PRODUCTS: "/products",
+    PRODUCT_DETAIL: (id: number) => `/products/${id}`,
+    PRODUCT_SUBMIT: (id: number) => `/products/${id}/submit`,
+    PRODUCT_APPROVE: (id: number) => `/products/${id}/approve`,
+    PRODUCT_REJECT: (id: number) => `/products/${id}/reject`,
+    PRODUCT_RESUBMIT: (id: number) => `/products/${id}/resubmit`,
+    PRODUCT_SCHEDULE: (id: number) => `/products/${id}/schedule`,
+    PRODUCT_START_SALE: (id: number) => `/products/${id}/start-sale`,
+    PRODUCT_CLOSE_SALE: (id: number) => `/products/${id}/close-sale`,
+    PRODUCT_COMPLETE: (id: number) => `/products/${id}/complete`,
   },
 } as const;
 
@@ -180,6 +233,6 @@ export function getApiUrl(endpoint: string): string {
 
 export function getOAuthLoginUrl(provider: string, rememberMe = false): string {
   return `${
-    API_CONFIG.BASE_URL
+      API_CONFIG.BASE_URL
   }/auth/oauth/${provider.toLowerCase()}?rememberMe=${rememberMe}`;
 }

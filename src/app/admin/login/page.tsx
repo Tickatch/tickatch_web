@@ -2,20 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Header from "@/components/common/Header";
 import LoginCard from "@/components/auth/LoginCard";
 import { LoginResponse } from "@/types/auth";
-import { getApiUrl, API_CONFIG } from "@/lib/api-client";
 import { useAuth } from "@/providers/AuthProvider";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const {
-    isAuthenticated,
-    isLoading: authLoading,
-    login,
-    userType,
-  } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, login, userType } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,15 +24,15 @@ export default function AdminLoginPage() {
   }, [authLoading, isAuthenticated, userType, router]);
 
   const handleLogin = async (
-    email: string,
-    password: string,
-    rememberMe: boolean
+      email: string,
+      password: string,
+      rememberMe: boolean
   ) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.LOGIN), {
+      const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -50,13 +43,13 @@ export default function AdminLoginPage() {
         }),
       });
 
+      const result = await response.json();
+
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || "로그인에 실패했습니다.");
+        throw new Error(result.error || "로그인에 실패했습니다.");
       }
 
-      const data: LoginResponse = await response.json();
-      await login(data);
+      await login(result.data as LoginResponse);
       router.push("/admin");
     } catch (err) {
       setError(err instanceof Error ? err.message : "로그인에 실패했습니다.");
@@ -67,9 +60,9 @@ export default function AdminLoginPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin" />
-      </div>
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+          <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
+        </div>
     );
   }
 
@@ -78,17 +71,15 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header userType="ADMIN" />
-
-      <main className="flex-1 flex items-center justify-center p-4">
-        <LoginCard
-          userType="ADMIN"
-          onLogin={handleLogin}
-          isLoading={isLoading}
-          error={error}
-        />
-      </main>
-    </div>
+      <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-950">
+        <main className="flex-1 flex items-center justify-center p-4">
+          <LoginCard
+              userType="ADMIN"
+              onLogin={handleLogin}
+              isLoading={isLoading}
+              error={error}
+          />
+        </main>
+      </div>
   );
 }

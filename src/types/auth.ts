@@ -2,6 +2,9 @@
  * 인증 관련 타입 정의 (백엔드 Auth Service와 동기화)
  */
 
+// API 공통 타입은 api.ts에서 re-export
+export type { ApiResponse, ErrorDetail, FieldError } from "./api";
+
 // ========== Enums ==========
 
 /** 사용자 유형 */
@@ -57,6 +60,13 @@ export interface RefreshRequest {
 /** 회원탈퇴 요청 */
 export interface WithdrawRequest {
   password: string;
+}
+
+/** 비밀번호 찾기 요청 */
+export interface FindPasswordRequest {
+  email: string;
+  newPassword: string;
+  userType: UserType;
 }
 
 /** OAuth 로그인 요청 (쿼리 파라미터) */
@@ -118,27 +128,6 @@ export interface AuthState {
   userType: UserType | null;
 }
 
-// ========== API 응답 래퍼 ==========
-
-/** API 성공 응답 */
-export interface ApiSuccessResponse<T> {
-  success: true;
-  data: T;
-  message?: string;
-}
-
-/** API 에러 응답 */
-export interface ApiErrorResponse {
-  success: false;
-  error: {
-    code: string;
-    message: string;
-  };
-}
-
-/** API 응답 (성공 또는 에러) */
-export type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse;
-
 // ========== 라벨 매핑 ==========
 
 export const USER_TYPE_LABELS: Record<UserType, string> = {
@@ -164,17 +153,23 @@ export const PROVIDER_TYPE_LABELS: Record<ProviderType, string> = {
 /** 사용자 유형별 리다이렉트 경로 */
 export function getRedirectPathByUserType(userType: UserType): string {
   switch (userType) {
-    case "CUSTOMER": return "/";
-    case "SELLER": return "/seller";
-    case "ADMIN": return "/admin";
+    case "CUSTOMER":
+      return "/";
+    case "SELLER":
+      return "/seller";
+    case "ADMIN":
+      return "/admin";
   }
 }
 
 /** 사용자 유형별 로그인 경로 */
 export function getLoginPathByUserType(userType: UserType): string {
   switch (userType) {
-    case "CUSTOMER": return "/login";
-    case "SELLER": return "/seller/login";
-    case "ADMIN": return "/admin/login";
+    case "CUSTOMER":
+      return "/login";
+    case "SELLER":
+      return "/seller/login";
+    case "ADMIN":
+      return "/admin/login";
   }
 }
