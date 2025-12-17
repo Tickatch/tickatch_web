@@ -1,11 +1,14 @@
 // src/lib/api-client.ts
+
 type RefreshFunction = () => Promise<string | null>;
+type GetTokenFunction = () => string | null;
 
 class ApiClient {
-  private baseUrl =
-      process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
+  // Next.js API Route를 통해 프록시 (쿠키 기반 인증)
+  private baseUrl = "/api";
 
-  private getAccessToken: () => string | null = () => null;
+  // Auth 핸들러 (useAuth에서 설정)
+  private getAccessToken: GetTokenFunction = () => null;
   private refreshToken: RefreshFunction = async () => null;
   private onAuthError: () => void = () => {};
 
@@ -52,15 +55,12 @@ class ApiClient {
       complete: (id: number) => `/products/${id}/complete`,
     },
     venue: {
-      // ArtHall
       artHalls: "/arthalls",
       artHallDetail: (id: number) => `/arthalls/${id}`,
       artHallStatus: (id: number) => `/arthalls/${id}/status`,
-      // Stage
       stages: (artHallId: number) => `/arthalls/${artHallId}/stages`,
       stageDetail: (stageId: number) => `/arthalls/stages/${stageId}`,
       stageStatus: (stageId: number) => `/arthalls/stages/${stageId}/status`,
-      // StageSeat
       stageSeats: (stageId: number) => `/arthalls/stages/${stageId}/stage-seats`,
       stageSeatDetail: (stageSeatId: number) => `/arthalls/stage-seats/${stageSeatId}`,
       stageSeatUpdate: (seatId: number) => `/arthalls/stages/stage-seats/${seatId}`,
@@ -75,14 +75,13 @@ class ApiClient {
       reserve: (reservationSeatId: number) => `/reservation-seats/${reservationSeatId}/reserve`,
       cancel: (reservationSeatId: number) => `/reservation-seats/${reservationSeatId}/cancel`,
     },
-    // 필요한 엔드포인트 추가...
   } as const;
 
   // ========================================
-  // Auth 핸들러 설정 (AuthProvider에서 호출)
+  // Auth 핸들러 설정 (useAuth에서 호출)
   // ========================================
   setAuthHandlers(handlers: {
-    getAccessToken: () => string | null;
+    getAccessToken: GetTokenFunction;
     refreshToken: RefreshFunction;
     onAuthError: () => void;
   }) {
@@ -112,20 +111,20 @@ class ApiClient {
     });
   }
 
-  async delete<T>(endpoint: string): Promise<T> {
-    return this.fetch(endpoint, { method: "DELETE" });
+  async delete<T>(endpoint: string, body?: unknown): Promise<T> {
+    return this.fetch(endpoint, {
+      method: "DELETE",
+      body: body ? JSON.stringify(body) : undefined,
+    });
   }
 
   // ========================================
   // 핵심 fetch 로직 (401 자동 갱신)
   // ========================================
-  private async fetch<T>(
-      endpoint: string,
-      options: RequestInit = {}
-  ): Promise<T> {
+  private async fetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
 
-    // 첫 번째 시도
+    // 1차 요청
     let response = await this.doFetch(url, options);
 
     // 401이면 토큰 갱신 후 재시도
@@ -133,8 +132,10 @@ class ApiClient {
       const newToken = await this.refreshToken();
 
       if (newToken) {
+        // 토큰 갱신 성공 → 재요청
         response = await this.doFetch(url, options);
       } else {
+        // 갱신 실패 → 로그인 페이지로
         this.onAuthError();
         throw new AuthError("인증이 만료되었습니다.");
       }
@@ -142,7 +143,7 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new ApiError(response.status, error.message || "요청 실패");
+      throw new ApiError(response.status, error.message || error.error || "요청 실패");
     }
 
     if (response.status === 204) {
@@ -157,6 +158,7 @@ class ApiClient {
 
     return fetch(url, {
       ...options,
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
         ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
@@ -168,12 +170,6 @@ class ApiClient {
   // ========================================
   // 헬퍼 함수
   // ========================================
-  getOAuthLoginUrl(provider: string, rememberMe = false): string {
-    return `${
-        this.baseUrl
-    }/auth/oauth/${provider.toLowerCase()}?rememberMe=${rememberMe}`;
-  }
-
   getFullUrl(endpoint: string): string {
     return `${this.baseUrl}${endpoint}`;
   }
@@ -197,42 +193,15 @@ export class AuthError extends Error {
 // 싱글톤 export
 export const api = new ApiClient();
 
+// 백엔드 직접 호출용 (OAuth 등)
 export const API_CONFIG = {
   BASE_URL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1",
-  ENDPOINTS: {
-    LOGIN: "/auth/login",
-    REGISTER: "/auth/register",
-    LOGOUT: "/auth/logout",
-    REFRESH: "/auth/refresh",
-    ME: "/auth/me",
-    CHECK_EMAIL: "/auth/check-email",
-    CHANGE_PASSWORD: "/auth/password",
-    WITHDRAW: "/auth/withdraw",
-    FIND_PASSWORD: "/auth/find-password",
-    OAUTH_LOGIN: (provider: string) => `/auth/oauth/${provider}`,
-    OAUTH_CALLBACK: (provider: string) => `/auth/oauth/${provider}/callback`,
-    OAUTH_LINK: (provider: string) => `/auth/oauth/${provider}/link`,
-    OAUTH_UNLINK: (provider: string) => `/auth/oauth/${provider}/unlink`,
-    // Products
-    PRODUCTS: "/products",
-    PRODUCT_DETAIL: (id: number) => `/products/${id}`,
-    PRODUCT_SUBMIT: (id: number) => `/products/${id}/submit`,
-    PRODUCT_APPROVE: (id: number) => `/products/${id}/approve`,
-    PRODUCT_REJECT: (id: number) => `/products/${id}/reject`,
-    PRODUCT_RESUBMIT: (id: number) => `/products/${id}/resubmit`,
-    PRODUCT_SCHEDULE: (id: number) => `/products/${id}/schedule`,
-    PRODUCT_START_SALE: (id: number) => `/products/${id}/start-sale`,
-    PRODUCT_CLOSE_SALE: (id: number) => `/products/${id}/close-sale`,
-    PRODUCT_COMPLETE: (id: number) => `/products/${id}/complete`,
-  },
 } as const;
 
-export function getApiUrl(endpoint: string): string {
+export function getBackendUrl(endpoint: string): string {
   return `${API_CONFIG.BASE_URL}${endpoint}`;
 }
 
 export function getOAuthLoginUrl(provider: string, rememberMe = false): string {
-  return `${
-      API_CONFIG.BASE_URL
-  }/auth/oauth/${provider.toLowerCase()}?rememberMe=${rememberMe}`;
+  return `${API_CONFIG.BASE_URL}/auth/oauth/${provider.toLowerCase()}?rememberMe=${rememberMe}`;
 }
