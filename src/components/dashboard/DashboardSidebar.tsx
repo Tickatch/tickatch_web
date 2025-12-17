@@ -96,7 +96,8 @@ export default function DashboardSidebar({
                 )}
                 <ul className="space-y-1">
                   {group.items.map((item) => {
-                    const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                    // const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                    const isActive = pathname === item.href;
                     return (
                         <li key={item.href}>
                           <Link
