@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { UserType } from "@/types/auth";
 import { CATEGORIES } from "@/types/product";
-import { useAuth } from "@/providers/AuthProvider";
+import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import SearchBar from "./SearchBar";
 import NotificationBell from "./NotificationBell";
