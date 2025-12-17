@@ -16,11 +16,15 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "picsum.photos",
       },
-      // 실제 서비스 이미지 서버 (추후 추가)
-      // {
-      //   protocol: "https",
-      //   hostname: "your-image-server.com",
-      // },
+      // 파일 서버
+      {
+        protocol: "https",
+        hostname: "www.pinjun.xyz",
+      },
+      {
+        protocol: "https",
+        hostname: "pinjun.xyz",
+      },
     ],
   },
 };
