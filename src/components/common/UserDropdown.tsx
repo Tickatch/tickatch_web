@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { useAuth } from "@/providers/AuthProvider";
+import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 interface UserDropdownProps {
@@ -33,7 +33,7 @@ const menuItems: MenuItem[] = [
   },
   {
     label: "예매 내역",
-    href: "/mypage/bookings",
+    href: "/mypage/reservations",
     icon: (
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path
