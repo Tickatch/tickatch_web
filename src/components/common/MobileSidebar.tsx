@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { CATEGORIES } from "@/types/product";
-import { useAuth } from "@/providers/AuthProvider";
+import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 interface MobileSidebarProps {
@@ -19,7 +19,7 @@ const infoMenus = [
 ];
 
 const myMenus = [
-  { label: "예매확인/취소", href: "/mypage/bookings" },
+  { label: "예매확인/취소", href: "/mypage/reservations" },
 ];
 
 export default function MobileSidebar({
