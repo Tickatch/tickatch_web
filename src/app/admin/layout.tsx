@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useAuth } from "@/providers/AuthProvider";
+import { useAuth } from "@/hooks/useAuth";
 import { DashboardSidebar, DashboardHeader, SidebarGroup } from "@/components/dashboard";
 
 // 인증 불필요 페이지 (로그인)
@@ -25,9 +25,29 @@ const Icons = {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
       </svg>
   ),
+  User: () => (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+      </svg>
+  ),
+  UserShield: () => (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+      </svg>
+  ),
   Products: () => (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+      </svg>
+  ),
+  ClipboardCheck: () => (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+      </svg>
+  ),
+  List: () => (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
       </svg>
   ),
   Plus: () => (
@@ -65,7 +85,8 @@ const sidebarGroups: SidebarGroup[] = [
   {
     title: "상품 관리",
     items: [
-      { label: "상품 심사", href: "/admin/products", icon: <Icons.Products />, badge: 3 },
+      { label: "상품 목록", href: "/admin/products", icon: <Icons.List /> },
+      { label: "상품 심사", href: "/admin/products/pending", icon: <Icons.ClipboardCheck /> },
     ],
   },
   {
@@ -73,6 +94,13 @@ const sidebarGroups: SidebarGroup[] = [
     items: [
       { label: "판매자 관리", href: "/admin/users/sellers", icon: <Icons.Users /> },
       { label: "구매자 관리", href: "/admin/users/customers", icon: <Icons.Users /> },
+      { label: "관리자 관리", href: "/admin/users/admins", icon: <Icons.UserShield /> },
+    ],
+  },
+  {
+    title: "내 계정",
+    items: [
+      { label: "마이페이지", href: "/admin/mypage", icon: <Icons.User /> },
     ],
   },
   {
@@ -86,7 +114,7 @@ const sidebarGroups: SidebarGroup[] = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isAuthenticated, isLoading, userType } = useAuth();
+  const { isAuthenticated, userType } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // 공개 페이지인지 확인
@@ -96,30 +124,25 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (isPublicPage) return;
 
-    if (!isLoading && !isAuthenticated) {
+    if (!isAuthenticated) {
       router.push("/admin/login");
-    } else if (!isLoading && isAuthenticated && userType !== "ADMIN") {
+    } else if (userType !== "ADMIN") {
       router.push("/");
     }
-  }, [isLoading, isAuthenticated, userType, router, isPublicPage]);
+  }, [isAuthenticated, userType, router, isPublicPage]);
 
   // 공개 페이지는 레이아웃 없이 렌더링
   if (isPublicPage) {
     return <>{children}</>;
   }
 
-  // 로딩 중
-  if (isLoading) {
+  // 인증 안됨
+  if (!isAuthenticated || userType !== "ADMIN") {
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
           <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
         </div>
     );
-  }
-
-  // 인증 안됨
-  if (!isAuthenticated || userType !== "ADMIN") {
-    return null;
   }
 
   return (
