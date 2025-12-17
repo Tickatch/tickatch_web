@@ -14,7 +14,6 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
-
   --font-sans: var(--font-sans), system-ui, sans-serif;
 }
 
@@ -66,7 +65,7 @@ body {
 }
 
 /* 포커스 스타일 통일 */
-*:focus-visible {
+*:focus-visible:not(input):not(textarea):not(select):not(button) {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
