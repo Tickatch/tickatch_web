@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useAuth } from "@/providers/AuthProvider";
+import { useAuth } from "@/hooks/useAuth";
 import { DashboardSidebar, DashboardHeader, SidebarGroup } from "@/components/dashboard";
 
 // 인증 불필요 페이지 (로그인, 회원가입, 비밀번호 찾기)
@@ -86,34 +86,29 @@ export default function SellerLayout({ children }: { children: React.ReactNode }
   // 공개 페이지인지 확인
   const isPublicPage = PUBLIC_PATHS.includes(pathname);
 
-  // 인증 체크 (공개 페이지 제외)
+  // 인증 체크 (공개 페이지 제외, 로딩 완료 후)
   useEffect(() => {
-    if (isPublicPage) return;
+    if (isPublicPage || isLoading) return;
 
-    if (!isLoading && !isAuthenticated) {
+    if (!isAuthenticated) {
       router.push("/seller/login");
-    } else if (!isLoading && isAuthenticated && userType !== "SELLER") {
+    } else if (userType !== "SELLER") {
       router.push("/");
     }
-  }, [isLoading, isAuthenticated, userType, router, isPublicPage]);
+  }, [isAuthenticated, isLoading, userType, router, isPublicPage]);
 
   // 공개 페이지는 레이아웃 없이 렌더링
   if (isPublicPage) {
     return <>{children}</>;
   }
 
-  // 로딩 중
-  if (isLoading) {
+  // 로딩 중이거나 인증 안됨
+  if (isLoading || !isAuthenticated || userType !== "SELLER") {
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
           <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
         </div>
     );
-  }
-
-  // 인증 안됨
-  if (!isAuthenticated || userType !== "SELLER") {
-    return null;
   }
 
   return (
