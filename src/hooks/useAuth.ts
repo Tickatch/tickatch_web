@@ -12,6 +12,15 @@ interface User {
   nickname: string;
 }
 
+// ============================================
+// 모듈 레벨 전역 변수 (싱글톤)
+// ============================================
+let globalAuthChecked = false;
+let globalAuthPromise: Promise<void> | null = null;
+let globalUser: User | null = null;
+let globalAccessToken: string | null = null;
+let globalIsAuthenticated = false;
+
 // 경로에서 유저 타입 추론
 function getUserTypeFromPath(pathname: string): UserType {
   if (pathname.startsWith("/admin")) return "ADMIN";
@@ -28,25 +37,26 @@ function getCookie(name: string): string | null {
 
 /**
  * 인증 관련 훅
- * - 페이지 로드 시 /api/auth/me로 인증 검증
- * - 401 시 refresh 시도
- * - 실패 시 로그인 페이지로 리다이렉트
  */
 export function useAuth() {
   const router = useRouter();
   const pathname = usePathname();
   const currentUserType = getUserTypeFromPath(pathname);
 
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<User | null>(globalUser);
+  const [isLoading, setIsLoading] = useState(!globalAuthChecked);
+  const [isAuthenticated, setIsAuthenticated] = useState(globalIsAuthenticated);
 
-  // 토큰 메모리 저장 (API 요청용)
-  const accessTokenRef = useRef<string | null>(null);
+  // 현재 경로 저장 (ref로 관리)
+  const pathnameRef = useRef(pathname);
+
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
 
   // 토큰 getter
   const getAccessToken = useCallback(() => {
-    return accessTokenRef.current;
+    return globalAccessToken;
   }, []);
 
   // 토큰 refresh
@@ -57,34 +67,39 @@ export function useAuth() {
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          "X-Current-Path": pathname,
+          "X-Current-Path": pathnameRef.current,
         },
       });
 
       if (!response.ok) return null;
 
       const data = await response.json();
-      accessTokenRef.current = data.accessToken;
+      globalAccessToken = data.accessToken;
       return data.accessToken;
     } catch {
       return null;
     }
-  }, [pathname]);
+  }, []);
 
-  // 인증 에러 핸들러 (로그인 페이지로 이동)
+  // 인증 에러 핸들러
   const handleAuthError = useCallback(() => {
-    accessTokenRef.current = null;
+    globalAccessToken = null;
+    globalUser = null;
+    globalIsAuthenticated = false;
+    globalAuthChecked = false;
+
     setUser(null);
     setIsAuthenticated(false);
 
-    if (currentUserType === "ADMIN") {
+    const userType = getUserTypeFromPath(pathnameRef.current);
+    if (userType === "ADMIN") {
       router.push("/admin/login");
-    } else if (currentUserType === "SELLER") {
+    } else if (userType === "SELLER") {
       router.push("/seller/login");
     } else {
       router.push("/login");
     }
-  }, [router, currentUserType]);
+  }, [router]);
 
   // api-client에 핸들러 등록
   useEffect(() => {
@@ -95,17 +110,33 @@ export function useAuth() {
     });
   }, [getAccessToken, refreshToken, handleAuthError]);
 
-  // 인증 체크 (me 요청)
+  // 인증 체크 (전역에서 1회만 실행)
   useEffect(() => {
-    const checkAuth = async () => {
-      setIsLoading(true);
+    // 이미 체크 완료된 경우 전역 상태 동기화만
+    if (globalAuthChecked) {
+      setUser(globalUser);
+      setIsAuthenticated(globalIsAuthenticated);
+      setIsLoading(false);
+      return;
+    }
 
+    // 이미 진행 중인 요청이 있으면 그 결과를 기다림
+    if (globalAuthPromise) {
+      globalAuthPromise.then(() => {
+        setUser(globalUser);
+        setIsAuthenticated(globalIsAuthenticated);
+        setIsLoading(false);
+      });
+      return;
+    }
+
+    const checkAuth = async () => {
       try {
         // 1차: me 요청
         const response = await fetch("/api/auth/me", {
           credentials: "include",
           headers: {
-            "X-Current-Path": pathname,
+            "X-Current-Path": pathnameRef.current,
           },
         });
 
@@ -113,10 +144,12 @@ export function useAuth() {
         if (response.ok) {
           const data = await response.json();
           if (data.user) {
+            globalUser = data.user;
+            globalAccessToken = data.accessToken;
+            globalIsAuthenticated = true;
+
             setUser(data.user);
             setIsAuthenticated(true);
-            accessTokenRef.current = data.accessToken;
-            setIsLoading(false);
             return;
           }
         }
@@ -126,21 +159,22 @@ export function useAuth() {
           const newToken = await refreshToken();
 
           if (newToken) {
-            // refresh 성공 → me 재요청
             const retryResponse = await fetch("/api/auth/me", {
               credentials: "include",
               headers: {
-                "X-Current-Path": pathname,
+                "X-Current-Path": pathnameRef.current,
               },
             });
 
             if (retryResponse.ok) {
               const retryData = await retryResponse.json();
               if (retryData.user) {
+                globalUser = retryData.user;
+                globalAccessToken = retryData.accessToken;
+                globalIsAuthenticated = true;
+
                 setUser(retryData.user);
                 setIsAuthenticated(true);
-                accessTokenRef.current = retryData.accessToken;
-                setIsLoading(false);
                 return;
               }
             }
@@ -148,22 +182,31 @@ export function useAuth() {
         }
 
         // 인증 실패
+        globalUser = null;
+        globalAccessToken = null;
+        globalIsAuthenticated = false;
+
         setUser(null);
         setIsAuthenticated(false);
-        accessTokenRef.current = null;
       } catch {
+        globalUser = null;
+        globalAccessToken = null;
+        globalIsAuthenticated = false;
+
         setUser(null);
         setIsAuthenticated(false);
-        accessTokenRef.current = null;
       } finally {
+        globalAuthChecked = true;
+        globalAuthPromise = null;
         setIsLoading(false);
       }
     };
 
-    checkAuth();
-  }, [pathname, refreshToken]);
+    // Promise 저장하여 중복 요청 방지
+    globalAuthPromise = checkAuth();
+  }, [refreshToken]);
 
-  // 로그인 (쿠키에 토큰 저장)
+  // 로그인
   const login = useCallback(async (response: LoginResponse) => {
     await fetch("/api/auth/session", {
       method: "POST",
@@ -172,34 +215,43 @@ export function useAuth() {
       body: JSON.stringify(response),
     });
 
-    accessTokenRef.current = response.accessToken;
-    setIsAuthenticated(true);
-    setUser({
+    globalAccessToken = response.accessToken;
+    globalIsAuthenticated = true;
+    globalUser = {
       id: response.authId,
       email: response.email,
       nickname: response.email.split("@")[0],
-    });
+    };
+
+    setIsAuthenticated(true);
+    setUser(globalUser);
   }, []);
 
-  // 로그아웃 (쿠키 삭제 + 리다이렉트)
+  // 로그아웃
   const logout = useCallback(async () => {
-    await fetch(`/api/auth/logout?userType=${currentUserType}`, {
+    const userType = getUserTypeFromPath(pathnameRef.current);
+
+    await fetch(`/api/auth/logout?userType=${userType}`, {
       method: "POST",
       credentials: "include",
     });
 
-    accessTokenRef.current = null;
+    globalAccessToken = null;
+    globalUser = null;
+    globalIsAuthenticated = false;
+    globalAuthChecked = false;
+
     setUser(null);
     setIsAuthenticated(false);
 
-    if (currentUserType === "ADMIN") {
+    if (userType === "ADMIN") {
       router.push("/admin/login");
-    } else if (currentUserType === "SELLER") {
+    } else if (userType === "SELLER") {
       router.push("/seller/login");
     } else {
       router.push("/");
     }
-  }, [router, currentUserType]);
+  }, [router]);
 
   return {
     user,

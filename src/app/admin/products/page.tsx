@@ -1,624 +1,398 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { DataTable, Column } from "@/components/dashboard";
 import {
   ProductResponse,
+  ProductStatus,
+  ProductType,
   PRODUCT_STATUS_LABELS,
   PRODUCT_TYPE_LABELS,
-  AGE_RATING_LABELS,
   getStatusColor,
   getProductTypeColor,
 } from "@/types/product";
-import { SellerResponse } from "@/types/user";
-import {
-  ReservationSeatResponse,
-  getGradeBgColor,
-} from "@/types/reservation-seat";
-import { ApiResponse } from "@/types/api";
+import { ApiResponse, PageResponse, PageInfo } from "@/types/api";
 import { cn } from "@/lib/utils";
-import SeatGrid, { StageSeatInfo, ReservationSeatInfo } from "@/components/common/SeatGrid";
 
-interface Props {
-  params: Promise<{ id: string }>;
-}
-
-export default function AdminProductDetailPage({ params }: Props) {
-  const { id } = use(params);
+export default function AdminProductsPage() {
   const router = useRouter();
-
-  const [product, setProduct] = useState<ProductResponse | null>(null);
-  const [seller, setSeller] = useState<SellerResponse | null>(null);
-  const [seats, setSeats] = useState<ReservationSeatResponse[]>([]);
-  const [stageSeats, setStageSeats] = useState<StageSeatInfo[]>([]);
+  const [products, setProducts] = useState<ProductResponse[]>([]);
+  const [pageInfo, setPageInfo] = useState<PageInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 반려 모달
-  const [showRejectModal, setShowRejectModal] = useState(false);
-  const [rejectReason, setRejectReason] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
+  // 필터
+  const [statusFilter, setStatusFilter] = useState<"ALL" | ProductStatus>("ALL");
+  const [typeFilter, setTypeFilter] = useState<"ALL" | ProductType>("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(0);
 
-  // 좌석 탭
-  const [seatTab, setSeatTab] = useState<"ALL" | "AVAILABLE" | "RESERVED">("ALL");
+  // 상품 목록 조회
+  const fetchProducts = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
 
-  // 좌석 배치도 표시 여부
-  const [showSeatMap, setShowSeatMap] = useState(false);
-
-  // 데이터 로드
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        // 1. 상품 조회
-        const productRes = await fetch(`/api/products/${id}`);
-        const productData: ApiResponse<ProductResponse> = await productRes.json();
-
-        if (!productRes.ok || !productData.success) {
-          throw new Error(productData.error?.message || "상품 조회에 실패했습니다.");
-        }
-
-        const productInfo = productData.data!;
-        setProduct(productInfo);
-
-        // 2. 판매자 조회
-        try {
-          const sellerRes = await fetch(`/api/user/sellers/${productInfo.sellerId}`);
-          const sellerData: ApiResponse<SellerResponse> = await sellerRes.json();
-          if (sellerRes.ok && sellerData.success) {
-            setSeller(sellerData.data || null);
-          }
-        } catch {
-          // 판매자 조회 실패는 무시
-        }
-
-        // 3. 좌석 조회 (판매중, 판매종료, 행사종료 상태일 때)
-        if (["ON_SALE", "CLOSED", "COMPLETED", "SCHEDULED"].includes(productInfo.status)) {
-          try {
-            const seatsRes = await fetch(`/api/reservation-seats?productId=${id}`);
-            const seatsData: ApiResponse<ReservationSeatResponse[]> = await seatsRes.json();
-            if (seatsRes.ok && seatsData.success) {
-              setSeats(seatsData.data || []);
-            }
-          } catch {
-            // 좌석 조회 실패는 무시
-          }
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "데이터 조회에 실패했습니다.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [id]);
-
-  // 스테이지 좌석 배치 조회 (product.stageId가 있을 때)
-  useEffect(() => {
-    if (!product?.stageId) return;
-
-    const fetchStageSeats = async () => {
-      try {
-        const response = await fetch(`/api/arthalls/stages/${product.stageId}/stage-seats`);
-        if (response.ok) {
-          const data = await response.json();
-          const seatList = data.data?.content || data.data || data.content || [];
-          // ACTIVE 상태인 좌석만 필터링 (API 응답 그대로 사용)
-          setStageSeats(seatList.filter((s: StageSeatInfo) => s.status === "ACTIVE"));
-        }
-      } catch (err) {
-        console.error("스테이지 좌석 조회 실패:", err);
-      }
-    };
-
-    fetchStageSeats();
-  }, [product?.stageId]);
-
-  // 상품 승인
-  const handleApprove = async () => {
-    const confirmed = confirm("이 상품을 승인하시겠습니까?");
-    if (!confirmed) return;
-
-    setIsProcessing(true);
     try {
-      const response = await fetch(`/api/products/${id}/approve`, {
-        method: "POST",
-      });
+      const params = new URLSearchParams();
+      params.set("page", currentPage.toString());
+      params.set("size", "20");
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || data.message || "승인에 실패했습니다.");
+      if (statusFilter !== "ALL") {
+        params.set("status", statusFilter);
+      }
+      if (typeFilter !== "ALL") {
+        params.set("productType", typeFilter);
+      }
+      if (searchQuery.trim()) {
+        params.set("name", searchQuery.trim());
       }
 
-      alert("상품이 승인되었습니다.");
-      router.push("/admin/products/pending");
+      const response = await fetch(`/api/products?${params.toString()}`);
+      const data: ApiResponse<PageResponse<ProductResponse>> = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error?.message || "상품 목록 조회에 실패했습니다.");
+      }
+
+      setProducts(data.data?.content || []);
+      setPageInfo(data.data?.pageInfo || null);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "승인에 실패했습니다.");
+      setError(err instanceof Error ? err.message : "상품 목록 조회에 실패했습니다.");
     } finally {
-      setIsProcessing(false);
+      setIsLoading(false);
     }
+  }, [currentPage, statusFilter, typeFilter, searchQuery]);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  // 검색
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCurrentPage(0);
+    fetchProducts();
   };
 
-  // 상품 반려
-  const handleReject = async () => {
-    if (!rejectReason.trim()) {
-      alert("반려 사유를 입력해주세요.");
-      return;
-    }
-
-    setIsProcessing(true);
+  // 엑셀 다운로드
+  const handleExcelDownload = async () => {
     try {
-      const response = await fetch(`/api/products/${id}/reject`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: rejectReason }),
-      });
+      // 현재 필터 조건으로 전체 데이터 조회
+      const params = new URLSearchParams();
+      params.set("page", "0");
+      params.set("size", "10000"); // 최대값
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || data.message || "반려에 실패했습니다.");
+      if (statusFilter !== "ALL") {
+        params.set("status", statusFilter);
+      }
+      if (typeFilter !== "ALL") {
+        params.set("productType", typeFilter);
+      }
+      if (searchQuery.trim()) {
+        params.set("name", searchQuery.trim());
       }
 
-      alert("상품이 반려되었습니다.");
-      router.push("/admin/products/pending");
+      const response = await fetch(`/api/products?${params.toString()}`);
+      const data: ApiResponse<PageResponse<ProductResponse>> = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error("데이터 조회에 실패했습니다.");
+      }
+
+      const allProducts = data.data?.content || [];
+
+      // CSV 생성
+      const headers = [
+        "ID",
+        "상품명",
+        "유형",
+        "상태",
+        "공연장",
+        "공연 시작일",
+        "공연 종료일",
+        "판매 시작일",
+        "판매 종료일",
+        "총 좌석",
+        "잔여 좌석",
+        "판매자 ID",
+        "등록일",
+      ];
+
+      const rows = allProducts.map((p) => [
+        p.id,
+        `"${p.name.replace(/"/g, '""')}"`,
+        PRODUCT_TYPE_LABELS[p.productType],
+        PRODUCT_STATUS_LABELS[p.status],
+        `"${p.artHallName.replace(/"/g, '""')}"`,
+        new Date(p.startAt).toLocaleDateString("ko-KR"),
+        new Date(p.endAt).toLocaleDateString("ko-KR"),
+        new Date(p.saleStartAt).toLocaleDateString("ko-KR"),
+        new Date(p.saleEndAt).toLocaleDateString("ko-KR"),
+        p.totalSeats,
+        p.availableSeats,
+        p.sellerId,
+        new Date(p.createdAt).toLocaleDateString("ko-KR"),
+      ]);
+
+      const csvContent =
+          "\uFEFF" + // BOM for Korean
+          headers.join(",") +
+          "\n" +
+          rows.map((row) => row.join(",")).join("\n");
+
+      // 다운로드
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `상품목록_${new Date().toISOString().split("T")[0]}.csv`;
+      link.click();
+      URL.revokeObjectURL(link.href);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "반려에 실패했습니다.");
-    } finally {
-      setIsProcessing(false);
-      setShowRejectModal(false);
+      alert(err instanceof Error ? err.message : "엑셀 다운로드에 실패했습니다.");
     }
   };
 
-  // 좌석 필터링
-  const filteredSeats = seats.filter((seat) => {
-    if (seatTab === "ALL") return true;
-    if (seatTab === "AVAILABLE") return seat.status === "AVAILABLE";
-    if (seatTab === "RESERVED") return ["RESERVED", "PREEMPTED"].includes(seat.status);
-    return true;
-  });
-
-  // 좌석 통계
-  const seatStats = {
-    total: seats.length,
-    available: seats.filter((s) => s.status === "AVAILABLE").length,
-    reserved: seats.filter((s) => s.status === "RESERVED").length,
-    preempted: seats.filter((s) => s.status === "PREEMPTED").length,
-  };
-
-  // SeatGrid용 예약 좌석 데이터 변환
-  const reservationSeatsForGrid: ReservationSeatInfo[] = seats.map((s) => ({
-    id: s.id,
-    seatNumber: s.seatNumber,
-    grade: s.grade,
-    price: s.price,
-    status: s.status as "AVAILABLE" | "PREEMPTED" | "RESERVED",
-  }));
-
-  if (isLoading) {
-    return (
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
-        </div>
-    );
-  }
-
-  if (error || !product) {
-    return (
-        <div className="p-6">
-          <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <p className="text-sm text-red-600 dark:text-red-400">{error || "상품을 찾을 수 없습니다."}</p>
+  const columns: Column<ProductResponse>[] = [
+    {
+      key: "id",
+      label: "ID",
+      className: "w-16",
+    },
+    {
+      key: "name",
+      label: "상품명",
+      render: (item) => (
+          <div className="max-w-xs">
+            <div className="font-medium truncate">{item.name}</div>
+            <div className="text-xs text-gray-500">{item.artHallName}</div>
           </div>
-          <Link href="/admin/products" className="mt-4 inline-block text-purple-500 hover:underline">
-            ← 목록으로 돌아가기
-          </Link>
-        </div>
-    );
-  }
+      ),
+    },
+    {
+      key: "productType",
+      label: "유형",
+      render: (item) => (
+          <span className={cn("px-2 py-1 rounded-full text-xs font-medium", getProductTypeColor(item.productType))}>
+          {PRODUCT_TYPE_LABELS[item.productType]}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      label: "상태",
+      render: (item) => (
+          <span className={cn("px-2 py-1 rounded-full text-xs font-medium", getStatusColor(item.status))}>
+          {PRODUCT_STATUS_LABELS[item.status]}
+        </span>
+      ),
+    },
+    {
+      key: "startAt",
+      label: "공연일",
+      render: (item) => (
+          <div className="text-sm">
+            <div>{new Date(item.startAt).toLocaleDateString("ko-KR")}</div>
+            <div className="text-xs text-gray-500">
+              ~ {new Date(item.endAt).toLocaleDateString("ko-KR")}
+            </div>
+          </div>
+      ),
+    },
+    {
+      key: "seats",
+      label: "좌석",
+      render: (item) => (
+          <div className="text-sm">
+            <span className="font-medium">{item.availableSeats.toLocaleString()}</span>
+            <span className="text-gray-500"> / {item.totalSeats.toLocaleString()}</span>
+          </div>
+      ),
+    },
+    {
+      key: "sellerId",
+      label: "판매자",
+      render: (item) => (
+          <span className="text-gray-600 dark:text-gray-400 font-mono text-xs">
+          {item.sellerId.slice(0, 8)}...
+        </span>
+      ),
+    },
+    {
+      key: "createdAt",
+      label: "등록일",
+      render: (item) => new Date(item.createdAt).toLocaleDateString("ko-KR"),
+    },
+  ];
+
+  // 통계
+  const stats = {
+    total: pageInfo?.totalElements || products.length,
+    pending: products.filter((p) => p.status === "PENDING").length,
+    onSale: products.filter((p) => p.status === "ON_SALE").length,
+    closed: products.filter((p) => ["CLOSED", "COMPLETED"].includes(p.status)).length,
+  };
 
   return (
       <div className="space-y-6">
-        {/* 헤더 */}
-        <div className="flex items-start justify-between">
+        {/* 페이지 헤더 */}
+        <div className="flex items-center justify-between">
           <div>
-            <Link href="/admin/products" className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 mb-2 inline-block">
-              ← 상품 목록
-            </Link>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{product.name}</h1>
-            <div className="flex items-center gap-2 mt-2">
-            <span className={cn("px-2 py-1 rounded-full text-xs font-medium", getProductTypeColor(product.productType))}>
-              {PRODUCT_TYPE_LABELS[product.productType]}
-            </span>
-              <span className={cn("px-2 py-1 rounded-full text-xs font-medium", getStatusColor(product.status))}>
-              {PRODUCT_STATUS_LABELS[product.status]}
-            </span>
-            </div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">상품 목록</h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">
+              등록된 모든 상품을 조회합니다.
+            </p>
           </div>
-
-          {/* 심사 버튼 */}
-          {product.status === "PENDING" && (
-              <div className="flex gap-2">
-                <button
-                    onClick={handleApprove}
-                    disabled={isProcessing}
-                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
-                >
-                  승인
-                </button>
-                <button
-                    onClick={() => setShowRejectModal(true)}
-                    disabled={isProcessing}
-                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
-                >
-                  반려
-                </button>
-              </div>
-          )}
+          <button
+              onClick={handleExcelDownload}
+              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            엑셀 다운로드
+          </button>
         </div>
 
-        {/* 좌석 배치도 (펼치기/접기) */}
-        {stageSeats.length > 0 && seats.length > 0 && (
-            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
-              <button
-                  onClick={() => setShowSeatMap(!showSeatMap)}
-                  className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">좌석 배치도</h2>
-                  <span className="text-sm text-gray-500">
-                  총 {seatStats.total}석 |
-                  <span className="text-green-600 ml-1">가능 {seatStats.available}</span>
-                    {seatStats.preempted > 0 && <span className="text-yellow-600 ml-1">선점 {seatStats.preempted}</span>}
-                    {seatStats.reserved > 0 && <span className="text-blue-600 ml-1">예약 {seatStats.reserved}</span>}
-                </span>
-                </div>
-                <svg
-                    className={cn("w-5 h-5 text-gray-500 transition-transform", showSeatMap && "rotate-180")}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              {showSeatMap && (
-                  <div className="px-6 pb-6">
-                    <SeatGrid
-                        mode="view"
-                        stageSeats={stageSeats}
-                        reservationSeats={reservationSeatsForGrid}
-                    />
-                  </div>
-              )}
+        {/* 에러 메시지 */}
+        {error && (
+            <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
             </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* 상품 정보 */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* 기본 정보 */}
-            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">기본 정보</h2>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500">공연장</p>
-                  <p className="font-medium">{product.artHallName}</p>
-                  <p className="text-xs text-gray-400">{product.artHallAddress}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">무대</p>
-                  <p className="font-medium">{product.stageName}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">공연 기간</p>
-                  <p className="font-medium">
-                    {new Date(product.startAt).toLocaleDateString("ko-KR")} ~ {new Date(product.endAt).toLocaleDateString("ko-KR")}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">러닝타임</p>
-                  <p className="font-medium">{product.runningTime}분</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">판매 기간</p>
-                  <p className="font-medium">
-                    {new Date(product.saleStartAt).toLocaleDateString("ko-KR")} ~ {new Date(product.saleEndAt).toLocaleDateString("ko-KR")}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">관람 등급</p>
-                  <p className="font-medium">{AGE_RATING_LABELS[product.ageRating]}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* 예매 정책 */}
-            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">예매 정책</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div className="flex items-center gap-2">
-                  <span className={cn("w-2 h-2 rounded-full", product.idVerificationRequired ? "bg-green-500" : "bg-gray-300")} />
-                  <span className="text-sm">본인 확인</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={cn("w-2 h-2 rounded-full", product.transferable ? "bg-green-500" : "bg-gray-300")} />
-                  <span className="text-sm">양도 가능</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={cn("w-2 h-2 rounded-full", product.cancellable ? "bg-green-500" : "bg-gray-300")} />
-                  <span className="text-sm">취소 가능</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={cn("w-2 h-2 rounded-full", product.lateEntryAllowed ? "bg-green-500" : "bg-gray-300")} />
-                  <span className="text-sm">늦은 입장</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={cn("w-2 h-2 rounded-full", product.photographyAllowed ? "bg-green-500" : "bg-gray-300")} />
-                  <span className="text-sm">촬영 가능</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={cn("w-2 h-2 rounded-full", product.foodAllowed ? "bg-green-500" : "bg-gray-300")} />
-                  <span className="text-sm">음식 반입</span>
-                </div>
-              </div>
-              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-500">1인당 최대 예매:</span>
-                    <span className="ml-2 font-medium">{product.maxTicketsPerPerson}매</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">입장 시작:</span>
-                    <span className="ml-2 font-medium">공연 {product.admissionMinutesBefore}분 전</span>
-                  </div>
-                  {product.cancellable && (
-                      <div>
-                        <span className="text-gray-500">취소 마감:</span>
-                        <span className="ml-2 font-medium">공연 {product.cancelDeadlineDays}일 전</span>
-                      </div>
-                  )}
-                  {product.hasIntermission && (
-                      <div>
-                        <span className="text-gray-500">인터미션:</span>
-                        <span className="ml-2 font-medium">{product.intermissionMinutes}분</span>
-                      </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* 좌석 현황 (리스트 뷰) */}
-            {seats.length > 0 && (
-                <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">좌석 현황</h2>
-
-                  {/* 좌석 통계 */}
-                  <div className="grid grid-cols-4 gap-4 mb-4">
-                    <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{seatStats.total}</p>
-                      <p className="text-xs text-gray-500">전체</p>
-                    </div>
-                    <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                      <p className="text-2xl font-bold text-green-600">{seatStats.available}</p>
-                      <p className="text-xs text-gray-500">예매 가능</p>
-                    </div>
-                    <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                      <p className="text-2xl font-bold text-blue-600">{seatStats.reserved}</p>
-                      <p className="text-xs text-gray-500">예약 완료</p>
-                    </div>
-                    <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                      <p className="text-2xl font-bold text-yellow-600">{seatStats.preempted}</p>
-                      <p className="text-xs text-gray-500">선점 중</p>
-                    </div>
-                  </div>
-
-                  {/* 좌석 탭 */}
-                  <div className="flex gap-2 mb-4">
-                    {[
-                      { value: "ALL", label: `전체 (${seatStats.total})` },
-                      { value: "AVAILABLE", label: `예매 가능 (${seatStats.available})` },
-                      { value: "RESERVED", label: `예약됨 (${seatStats.reserved + seatStats.preempted})` },
-                    ].map((tab) => (
-                        <button
-                            key={tab.value}
-                            onClick={() => setSeatTab(tab.value as typeof seatTab)}
-                            className={cn(
-                                "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                                seatTab === tab.value
-                                    ? "bg-purple-500 text-white"
-                                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200"
-                            )}
-                        >
-                          {tab.label}
-                        </button>
-                    ))}
-                  </div>
-
-                  {/* 좌석 목록 */}
-                  <div className="max-h-64 overflow-y-auto">
-                    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
-                      {filteredSeats.slice(0, 100).map((seat) => (
-                          <div
-                              key={seat.id}
-                              className={cn(
-                                  "p-2 rounded text-center text-xs border",
-                                  seat.status === "AVAILABLE"
-                                      ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
-                                      : seat.status === "RESERVED"
-                                          ? "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800"
-                                          : seat.status === "PREEMPTED"
-                                              ? "bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800"
-                                              : "bg-gray-50 border-gray-200 dark:bg-gray-800 dark:border-gray-700"
-                              )}
-                          >
-                            <div className="font-medium">{seat.seatNumber}</div>
-                            <div className={cn("text-[10px]", getGradeBgColor(seat.grade).replace("bg-", "text-"))}>{seat.grade}</div>
-                          </div>
-                      ))}
-                    </div>
-                    {filteredSeats.length > 100 && (
-                        <p className="text-center text-sm text-gray-500 mt-2">
-                          외 {filteredSeats.length - 100}개 좌석...
-                        </p>
-                    )}
-                  </div>
-                </div>
-            )}
-
-            {/* 좌석 등급 정보 */}
-            {product.seatGrades && product.seatGrades.length > 0 && (
-                <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">좌석 등급</h2>
-                  <div className="space-y-2">
-                    {product.seatGrades.map((grade, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <span className={cn("w-3 h-3 rounded-full", getGradeBgColor(grade.gradeName))} />
-                            <span className="font-medium">{grade.gradeName}</span>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-medium">{grade.price.toLocaleString()}원</p>
-                            <p className="text-xs text-gray-500">
-                              {grade.availableSeats} / {grade.totalSeats}석
-                            </p>
-                          </div>
-                        </div>
-                    ))}
-                  </div>
-                </div>
-            )}
+        {/* 통계 */}
+        <div className="grid grid-cols-4 gap-4">
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-center">
+            <p className="text-sm text-gray-500">전체</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{stats.total}</p>
           </div>
-
-          {/* 사이드바 */}
-          <div className="space-y-6">
-            {/* 판매자 정보 */}
-            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">판매자 정보</h2>
-              {seller ? (
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm text-gray-500">상호명</p>
-                      <p className="font-medium">{seller.businessName}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">담당자</p>
-                      <p className="font-medium">{seller.name}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">대표자</p>
-                      <p className="font-medium">{seller.representativeName}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">사업자등록번호</p>
-                      <p className="font-medium font-mono">{seller.formattedBusinessNumber}</p>
-                    </div>
-                    {seller.phone && (
-                        <div>
-                          <p className="text-sm text-gray-500">연락처</p>
-                          <p className="font-medium">{seller.phone}</p>
-                        </div>
-                    )}
-                    <div>
-                      <p className="text-sm text-gray-500">이메일</p>
-                      <p className="font-medium text-sm">{seller.email}</p>
-                    </div>
-                    <Link
-                        href={`/admin/users/sellers?email=${seller.email}`}
-                        className="block mt-4 text-center text-sm text-purple-500 hover:text-purple-600"
-                    >
-                      판매자 상세보기 →
-                    </Link>
-                  </div>
-              ) : (
-                  <div className="text-center py-4">
-                    <p className="text-gray-500">판매자 정보를 불러올 수 없습니다.</p>
-                    <p className="text-xs text-gray-400 mt-1 font-mono">{product.sellerId}</p>
-                  </div>
-              )}
-            </div>
-
-            {/* 메타 정보 */}
-            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">메타 정보</h2>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">상품 ID</span>
-                  <span className="font-mono">{product.id}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">스테이지 ID</span>
-                  <span className="font-mono">{product.stageId}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">총 좌석</span>
-                  <span>{product.totalSeats.toLocaleString()}석</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">잔여 좌석</span>
-                  <span>{product.availableSeats.toLocaleString()}석</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">조회수</span>
-                  <span>{product.viewCount.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">등록일</span>
-                  <span>{new Date(product.createdAt).toLocaleDateString("ko-KR")}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">수정일</span>
-                  <span>{new Date(product.updatedAt).toLocaleDateString("ko-KR")}</span>
-                </div>
-              </div>
-            </div>
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-center">
+            <p className="text-sm text-gray-500">심사 대기</p>
+            <p className="text-2xl font-bold text-yellow-500 mt-1">{stats.pending}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-center">
+            <p className="text-sm text-gray-500">판매중</p>
+            <p className="text-2xl font-bold text-green-500 mt-1">{stats.onSale}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-center">
+            <p className="text-sm text-gray-500">종료</p>
+            <p className="text-2xl font-bold text-gray-400 mt-1">{stats.closed}</p>
           </div>
         </div>
 
-        {/* 반려 모달 */}
-        {showRejectModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-              <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-md mx-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                  상품 반려
-                </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              <span className="font-medium text-gray-900 dark:text-white">
-                {product.name}
-              </span>
-                  을(를) 반려합니다.
-                </p>
-                <textarea
-                    value={rejectReason}
-                    onChange={(e) => setRejectReason(e.target.value)}
-                    placeholder="반려 사유를 입력해주세요..."
-                    rows={4}
-                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
-                />
-                <div className="flex justify-end gap-3 mt-4">
-                  <button
-                      onClick={() => {
-                        setShowRejectModal(false);
-                        setRejectReason("");
-                      }}
-                      className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                  >
-                    취소
-                  </button>
-                  <button
-                      onClick={handleReject}
-                      disabled={isProcessing}
-                      className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
-                  >
-                    {isProcessing ? "처리 중..." : "반려하기"}
-                  </button>
-                </div>
-              </div>
+        {/* 필터 & 검색 */}
+        <div className="flex flex-col lg:flex-row gap-4">
+          {/* 상태 필터 */}
+          <div className="flex gap-2 flex-wrap">
+            <span className="text-sm text-gray-500 py-1.5">상태:</span>
+            {[
+              { value: "ALL", label: "전체" },
+              { value: "PENDING", label: "심사대기" },
+              { value: "APPROVED", label: "승인됨" },
+              { value: "SCHEDULED", label: "예매예정" },
+              { value: "ON_SALE", label: "판매중" },
+              { value: "CLOSED", label: "판매종료" },
+              { value: "COMPLETED", label: "행사종료" },
+            ].map((filter) => (
+                <button
+                    key={filter.value}
+                    onClick={() => {
+                      setStatusFilter(filter.value as "ALL" | ProductStatus);
+                      setCurrentPage(0);
+                    }}
+                    className={cn(
+                        "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                        statusFilter === filter.value
+                            ? "bg-purple-500 text-white"
+                            : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200"
+                    )}
+                >
+                  {filter.label}
+                </button>
+            ))}
+          </div>
+
+          {/* 유형 필터 */}
+          <div className="flex gap-2">
+            <span className="text-sm text-gray-500 py-1.5">유형:</span>
+            {[
+              { value: "ALL", label: "전체" },
+              { value: "CONCERT", label: "콘서트" },
+              { value: "MUSICAL", label: "뮤지컬" },
+              { value: "PLAY", label: "연극" },
+              { value: "SPORTS", label: "스포츠" },
+            ].map((filter) => (
+                <button
+                    key={filter.value}
+                    onClick={() => {
+                      setTypeFilter(filter.value as "ALL" | ProductType);
+                      setCurrentPage(0);
+                    }}
+                    className={cn(
+                        "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                        typeFilter === filter.value
+                            ? "bg-orange-500 text-white"
+                            : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200"
+                    )}
+                >
+                  {filter.label}
+                </button>
+            ))}
+          </div>
+
+          {/* 검색 */}
+          <form onSubmit={handleSearch} className="flex-1 max-w-md ml-auto">
+            <div className="relative">
+              <svg
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                  type="text"
+                  placeholder="상품명으로 검색..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+          </form>
+        </div>
+
+        {/* 테이블 */}
+        <DataTable
+            columns={columns}
+            data={products}
+            keyField="id"
+            onRowClick={(item) => router.push(`/admin/products/${item.id}`)}
+            isLoading={isLoading}
+            emptyMessage="등록된 상품이 없습니다."
+        />
+
+        {/* 페이지네이션 */}
+        {pageInfo && pageInfo.totalPages > 1 && (
+            <div className="flex justify-center gap-2">
+              <button
+                  onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                  disabled={currentPage === 0}
+                  className="px-3 py-1.5 rounded-lg text-sm bg-gray-100 dark:bg-gray-800 disabled:opacity-50"
+              >
+                이전
+              </button>
+              <span className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400">
+            {currentPage + 1} / {pageInfo.totalPages}
+          </span>
+              <button
+                  onClick={() => setCurrentPage((p) => Math.min(pageInfo.totalPages - 1, p + 1))}
+                  disabled={currentPage >= pageInfo.totalPages - 1}
+                  className="px-3 py-1.5 rounded-lg text-sm bg-gray-100 dark:bg-gray-800 disabled:opacity-50"
+              >
+                다음
+              </button>
             </div>
         )}
       </div>

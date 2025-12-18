@@ -14,13 +14,8 @@ export default function SellerLoginPage() {
 
   // 이미 로그인된 경우 리다이렉트
   useEffect(() => {
-    if (!authLoading && isAuthenticated) {
-      if (userType === "SELLER") {
-        // 판매자 정보가 있는지 확인
-        checkSellerProfile();
-      } else {
-        setError("판매자 계정으로 로그인해주세요.");
-      }
+    if (!authLoading && isAuthenticated && userType === "SELLER") {
+      checkSellerProfile();
     }
   }, [authLoading, isAuthenticated, userType]);
 
@@ -30,17 +25,13 @@ export default function SellerLoginPage() {
       const response = await fetch("/api/user/sellers/me");
 
       if (response.ok) {
-        // 판매자 정보가 있으면 판매자 페이지로
         router.replace("/seller");
       } else if (response.status === 404) {
-        // 판매자 정보가 없으면 프로필 완성 페이지로
         router.replace("/seller/complete-profile");
       } else {
-        // 기타 에러
         router.replace("/seller");
       }
     } catch {
-      // 에러 발생 시 일단 판매자 페이지로
       router.replace("/seller");
     }
   };
@@ -75,24 +66,28 @@ export default function SellerLoginPage() {
       // 2. 로그인 성공 - AuthProvider에 저장
       await login(result.data as LoginResponse);
 
-      // 3. 판매자 정보 확인
+      // 3. 판매자 정보 확인 후 리다이렉트
       const meResponse = await fetch("/api/user/sellers/me");
 
       if (meResponse.ok) {
-        // 판매자 정보가 있으면 판매자 페이지로
-        router.push("/seller");
+        // 약간의 딜레이 후 리다이렉트 (상태 동기화 대기)
+        setTimeout(() => {
+          window.location.href = "/seller";
+        }, 100);
       } else if (meResponse.status === 404) {
-        // 판매자 정보가 없으면 프로필 완성 페이지로
-        router.push("/seller/complete-profile");
+        setTimeout(() => {
+          window.location.href = "/seller/complete-profile";
+        }, 100);
       } else {
-        // 기타 에러는 일단 판매자 페이지로
-        router.push("/seller");
+        setTimeout(() => {
+          window.location.href = "/seller";
+        }, 100);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "로그인에 실패했습니다.");
-    } finally {
       setIsLoading(false);
     }
+    // 성공 시에는 setIsLoading(false)를 호출하지 않음 (페이지 전환 전까지 로딩 유지)
   };
 
   if (authLoading) {

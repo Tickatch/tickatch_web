@@ -14,12 +14,8 @@ export default function AdminLoginPage() {
 
   // 이미 로그인된 경우 리다이렉트
   useEffect(() => {
-    if (!authLoading && isAuthenticated) {
-      if (userType === "ADMIN") {
-        router.replace("/admin");
-      } else {
-        setError("관리자 계정으로 로그인해주세요.");
-      }
+    if (!authLoading && isAuthenticated && userType === "ADMIN") {
+      router.replace("/admin");
     }
   }, [authLoading, isAuthenticated, userType, router]);
 
@@ -50,12 +46,16 @@ export default function AdminLoginPage() {
       }
 
       await login(result.data as LoginResponse);
-      router.push("/admin");
+
+      // window.location.href로 전체 페이지 리로드
+      setTimeout(() => {
+        window.location.href = "/admin";
+      }, 100);
     } catch (err) {
       setError(err instanceof Error ? err.message : "로그인에 실패했습니다.");
-    } finally {
       setIsLoading(false);
     }
+    // 성공 시에는 setIsLoading(false) 호출하지 않음
   };
 
   if (authLoading) {
@@ -67,7 +67,11 @@ export default function AdminLoginPage() {
   }
 
   if (isAuthenticated && userType === "ADMIN") {
-    return null;
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+          <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+    );
   }
 
   return (
