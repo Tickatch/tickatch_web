@@ -14,146 +14,6 @@ import {
 } from "@/types/product";
 import { cn } from "@/lib/utils";
 
-// 더미 상품 목록
-const DUMMY_PRODUCTS: ProductResponse[] = [
-  {
-    id: 1,
-    name: "2025 아이유 콘서트 - HER",
-    productType: "CONCERT",
-    status: "ON_SALE",
-    startAt: "2025-03-15T18:00:00",
-    endAt: "2025-03-17T21:00:00",
-    saleStartAt: "2025-02-01T10:00:00",
-    saleEndAt: "2025-03-14T23:59:59",
-    runningTime: 150,
-    stageId: 1,
-    stageName: "메인홀",
-    artHallId: 1,
-    artHallName: "올림픽공원 KSPO DOME",
-    artHallAddress: "서울특별시 송파구 올림픽로 424",
-    ageRating: "ALL",
-    maxTicketsPerPerson: 4,
-    idVerificationRequired: true,
-    transferable: false,
-    admissionMinutesBefore: 30,
-    lateEntryAllowed: false,
-    hasIntermission: true,
-    intermissionMinutes: 20,
-    photographyAllowed: false,
-    foodAllowed: false,
-    cancellable: true,
-    cancelDeadlineDays: 7,
-    totalSeats: 800,
-    availableSeats: 360,
-    viewCount: 15420,
-    sellerId: "seller-001",
-    createdAt: "2025-01-15T10:00:00",
-    updatedAt: "2025-02-20T15:30:00",
-  },
-  {
-    id: 2,
-    name: "레미제라블 - 10주년 기념 공연",
-    productType: "MUSICAL",
-    status: "SCHEDULED",
-    startAt: "2025-04-01T19:00:00",
-    endAt: "2025-06-30T21:30:00",
-    saleStartAt: "2025-03-01T10:00:00",
-    saleEndAt: "2025-06-29T23:59:59",
-    runningTime: 170,
-    stageId: 2,
-    stageName: "대극장",
-    artHallId: 2,
-    artHallName: "블루스퀘어",
-    artHallAddress: "서울특별시 용산구 이태원로 294",
-    ageRating: "TWELVE",
-    maxTicketsPerPerson: 4,
-    idVerificationRequired: false,
-    transferable: true,
-    admissionMinutesBefore: 30,
-    lateEntryAllowed: false,
-    hasIntermission: true,
-    intermissionMinutes: 15,
-    photographyAllowed: false,
-    foodAllowed: false,
-    cancellable: true,
-    cancelDeadlineDays: 3,
-    totalSeats: 1200,
-    availableSeats: 1200,
-    viewCount: 8920,
-    sellerId: "seller-001",
-    createdAt: "2025-02-01T09:00:00",
-    updatedAt: "2025-02-15T11:20:00",
-  },
-  {
-    id: 3,
-    name: "2025 프로야구 개막전",
-    productType: "SPORTS",
-    status: "PENDING",
-    startAt: "2025-03-29T14:00:00",
-    endAt: "2025-03-29T17:00:00",
-    saleStartAt: "2025-03-15T10:00:00",
-    saleEndAt: "2025-03-28T23:59:59",
-    runningTime: 180,
-    stageId: 3,
-    stageName: "메인 구장",
-    artHallId: 3,
-    artHallName: "고척스카이돔",
-    artHallAddress: "서울특별시 구로구 경인로 430",
-    ageRating: "ALL",
-    maxTicketsPerPerson: 4,
-    idVerificationRequired: false,
-    transferable: true,
-    admissionMinutesBefore: 60,
-    lateEntryAllowed: true,
-    hasIntermission: false,
-    intermissionMinutes: 0,
-    photographyAllowed: true,
-    foodAllowed: true,
-    cancellable: true,
-    cancelDeadlineDays: 1,
-    totalSeats: 16000,
-    availableSeats: 16000,
-    viewCount: 3200,
-    sellerId: "seller-001",
-    createdAt: "2025-02-20T14:00:00",
-    updatedAt: "2025-02-20T14:00:00",
-  },
-  {
-    id: 4,
-    name: "햄릿 - 2025 신작",
-    productType: "PLAY",
-    status: "DRAFT",
-    startAt: "2025-05-01T19:30:00",
-    endAt: "2025-05-31T21:30:00",
-    saleStartAt: "2025-04-15T10:00:00",
-    saleEndAt: "2025-05-30T23:59:59",
-    runningTime: 120,
-    stageId: 4,
-    stageName: "소극장",
-    artHallId: 4,
-    artHallName: "예술의전당",
-    artHallAddress: "서울특별시 서초구 남부순환로 2406",
-    ageRating: "FIFTEEN",
-    maxTicketsPerPerson: 2,
-    idVerificationRequired: false,
-    transferable: false,
-    admissionMinutesBefore: 20,
-    lateEntryAllowed: false,
-    hasIntermission: true,
-    intermissionMinutes: 10,
-    photographyAllowed: false,
-    foodAllowed: false,
-    cancellable: true,
-    cancelDeadlineDays: 5,
-    totalSeats: 300,
-    availableSeats: 300,
-    viewCount: 0,
-    sellerId: "seller-001",
-    createdAt: "2025-02-22T16:00:00",
-    updatedAt: "2025-02-22T16:00:00",
-  },
-];
-
 const statusFilters: { value: ProductStatus | "ALL"; label: string }[] = [
   { value: "ALL", label: "전체" },
   { value: "DRAFT", label: "임시저장" },
@@ -163,8 +23,6 @@ const statusFilters: { value: ProductStatus | "ALL"; label: string }[] = [
   { value: "SCHEDULED", label: "예매예정" },
   { value: "ON_SALE", label: "판매중" },
   { value: "CLOSED", label: "판매종료" },
-  { value: "COMPLETED", label: "행사종료" },
-  { value: "CANCELLED", label: "취소됨" },
 ];
 
 export default function SellerProductsPage() {
@@ -175,24 +33,50 @@ export default function SellerProductsPage() {
   const [products, setProducts] = useState<ProductResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [sellerId, setSellerId] = useState<string | null>(null);
 
+  // 판매자 정보 가져오기
   useEffect(() => {
-    // TODO: 실제 API 호출
+    const fetchSellerInfo = async () => {
+      try {
+        const response = await fetch("/api/user/sellers/me");
+        if (response.ok) {
+          const data = await response.json();
+          setSellerId(data.data?.id || data.id);
+        }
+      } catch (error) {
+        console.error("Failed to fetch seller info:", error);
+      }
+    };
+    fetchSellerInfo();
+  }, []);
+
+  // 상품 목록 가져오기
+  useEffect(() => {
+    if (!sellerId) return;
+
     const fetchProducts = async () => {
       setIsLoading(true);
       try {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        let filtered = DUMMY_PRODUCTS;
+        let url = `/api/products?sellerId=${sellerId}&size=100`;
         if (statusFilter !== "ALL") {
-          filtered = filtered.filter((p) => p.status === statusFilter);
+          url += `&status=${statusFilter}`;
         }
-        setProducts(filtered);
+
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          setProducts(data.data?.content || data.content || []);
+        }
+      } catch (error) {
+        console.error("Failed to fetch products:", error);
       } finally {
         setIsLoading(false);
       }
     };
+
     fetchProducts();
-  }, [statusFilter]);
+  }, [sellerId, statusFilter]);
 
   const filteredProducts = searchQuery
       ? products.filter((p) =>
@@ -251,41 +135,49 @@ export default function SellerProductsPage() {
     {
       key: "seats",
       label: "좌석 현황",
-      render: (item) => (
-          <div className="text-sm">
-            <div className="flex items-center gap-1">
-            <span className="text-green-600 dark:text-green-400 font-medium">
-              {item.availableSeats}
-            </span>
-              <span className="text-gray-400">/</span>
-              <span>{item.totalSeats}</span>
+      render: (item) => {
+        const soldPercentage = ((item.totalSeats - item.availableSeats) / item.totalSeats) * 100;
+        return (
+            <div className="text-sm">
+              <div className="flex items-center gap-1">
+              <span className="text-green-600 dark:text-green-400 font-medium">
+                {item.availableSeats}
+              </span>
+                <span className="text-gray-400">/</span>
+                <span>{item.totalSeats}</span>
+              </div>
+              <div className="w-20 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mt-1">
+                <div
+                    className="h-full bg-green-500 rounded-full"
+                    style={{ width: `${soldPercentage}%` }}
+                />
+              </div>
             </div>
-            <div className="w-20 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mt-1">
-              <div
-                  className="h-full bg-green-500 rounded-full"
-                  style={{
-                    width: `${((item.totalSeats - item.availableSeats) / item.totalSeats) * 100}%`,
-                  }}
-              />
-            </div>
-          </div>
-      ),
+        );
+      },
     },
     {
       key: "actions",
       label: "",
-      className: "w-24",
+      className: "w-32",
       render: (item) => (
           <div className="flex items-center gap-2">
             <Link
                 href={`/seller/products/${item.id}`}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                className="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                 onClick={(e) => e.stopPropagation()}
             >
-              <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
+              상세
             </Link>
+            {(item.status === "DRAFT" || item.status === "REJECTED") && (
+                <Link
+                    href={`/seller/products/${item.id}/edit`}
+                    className="px-3 py-1.5 text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-lg hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-colors"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                  수정
+                </Link>
+            )}
           </div>
       ),
     },
@@ -305,7 +197,7 @@ export default function SellerProductsPage() {
           </div>
           <Link
               href="/seller/products/new"
-              className="px-4 py-2 bg-gradient-to-r from-orange-500 to-rose-500 text-white rounded-lg font-medium hover:from-orange-600 hover:to-rose-600 transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg font-medium hover:from-emerald-600 hover:to-teal-600 transition-colors flex items-center gap-2"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -318,7 +210,7 @@ export default function SellerProductsPage() {
         <div className="flex flex-col sm:flex-row gap-4">
           {/* 상태 필터 */}
           <div className="flex flex-wrap gap-2">
-            {statusFilters.slice(0, 7).map((filter) => (
+            {statusFilters.map((filter) => (
                 <button
                     key={filter.value}
                     onClick={() => {
@@ -333,7 +225,7 @@ export default function SellerProductsPage() {
                     className={cn(
                         "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
                         statusFilter === filter.value
-                            ? "bg-orange-500 text-white"
+                            ? "bg-emerald-500 text-white"
                             : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                     )}
                 >
@@ -363,7 +255,7 @@ export default function SellerProductsPage() {
                   placeholder="상품명 검색..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
           </div>

@@ -2,125 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useAuth } from "@/hooks/useAuth";
 import { StatCard, DataTable, Column } from "@/components/dashboard";
 import { ProductResponse, PRODUCT_STATUS_LABELS, getStatusColor } from "@/types/product";
 import { cn } from "@/lib/utils";
-
-// 더미 통계
-const DUMMY_STATS = {
-  totalProducts: 12,
-  onSaleProducts: 8,
-  totalReservations: 1234,
-  totalRevenue: 185420000,
-  todayReservations: 45,
-  pendingProducts: 2,
-};
-
-// 더미 최근 상품
-const DUMMY_RECENT_PRODUCTS: ProductResponse[] = [
-  {
-    id: 1,
-    name: "2025 아이유 콘서트 - HER",
-    productType: "CONCERT",
-    status: "ON_SALE",
-    startAt: "2025-03-15T18:00:00",
-    endAt: "2025-03-17T21:00:00",
-    saleStartAt: "2025-02-01T10:00:00",
-    saleEndAt: "2025-03-14T23:59:59",
-    runningTime: 150,
-    stageId: 1,
-    stageName: "메인홀",
-    artHallId: 1,
-    artHallName: "올림픽공원 KSPO DOME",
-    artHallAddress: "서울특별시 송파구 올림픽로 424",
-    ageRating: "ALL",
-    maxTicketsPerPerson: 4,
-    idVerificationRequired: true,
-    transferable: false,
-    admissionMinutesBefore: 30,
-    lateEntryAllowed: false,
-    hasIntermission: true,
-    intermissionMinutes: 20,
-    photographyAllowed: false,
-    foodAllowed: false,
-    cancellable: true,
-    cancelDeadlineDays: 7,
-    totalSeats: 800,
-    availableSeats: 360,
-    viewCount: 15420,
-    sellerId: "seller-001",
-    createdAt: "2025-01-15T10:00:00",
-    updatedAt: "2025-02-20T15:30:00",
-  },
-  {
-    id: 2,
-    name: "레미제라블 - 10주년 기념 공연",
-    productType: "MUSICAL",
-    status: "SCHEDULED",
-    startAt: "2025-04-01T19:00:00",
-    endAt: "2025-06-30T21:30:00",
-    saleStartAt: "2025-03-01T10:00:00",
-    saleEndAt: "2025-06-29T23:59:59",
-    runningTime: 170,
-    stageId: 2,
-    stageName: "대극장",
-    artHallId: 2,
-    artHallName: "블루스퀘어",
-    artHallAddress: "서울특별시 용산구 이태원로 294",
-    ageRating: "TWELVE",
-    maxTicketsPerPerson: 4,
-    idVerificationRequired: false,
-    transferable: true,
-    admissionMinutesBefore: 30,
-    lateEntryAllowed: false,
-    hasIntermission: true,
-    intermissionMinutes: 15,
-    photographyAllowed: false,
-    foodAllowed: false,
-    cancellable: true,
-    cancelDeadlineDays: 3,
-    totalSeats: 1200,
-    availableSeats: 1200,
-    viewCount: 8920,
-    sellerId: "seller-001",
-    createdAt: "2025-02-01T09:00:00",
-    updatedAt: "2025-02-15T11:20:00",
-  },
-  {
-    id: 3,
-    name: "2025 프로야구 개막전",
-    productType: "SPORTS",
-    status: "PENDING",
-    startAt: "2025-03-29T14:00:00",
-    endAt: "2025-03-29T17:00:00",
-    saleStartAt: "2025-03-15T10:00:00",
-    saleEndAt: "2025-03-28T23:59:59",
-    runningTime: 180,
-    stageId: 3,
-    stageName: "메인 구장",
-    artHallId: 3,
-    artHallName: "고척스카이돔",
-    artHallAddress: "서울특별시 구로구 경인로 430",
-    ageRating: "ALL",
-    maxTicketsPerPerson: 4,
-    idVerificationRequired: false,
-    transferable: true,
-    admissionMinutesBefore: 60,
-    lateEntryAllowed: true,
-    hasIntermission: false,
-    intermissionMinutes: 0,
-    photographyAllowed: true,
-    foodAllowed: true,
-    cancellable: true,
-    cancelDeadlineDays: 1,
-    totalSeats: 16000,
-    availableSeats: 16000,
-    viewCount: 3200,
-    sellerId: "seller-001",
-    createdAt: "2025-02-20T14:00:00",
-    updatedAt: "2025-02-20T14:00:00",
-  },
-];
 
 // 아이콘
 const Icons = {
@@ -146,26 +31,96 @@ const Icons = {
   ),
 };
 
+interface DashboardStats {
+  totalProducts: number;
+  onSaleProducts: number;
+  totalReservations: number;
+  totalRevenue: number;
+  pendingProducts: number;
+}
+
 export default function SellerDashboardPage() {
-  const [stats, setStats] = useState(DUMMY_STATS);
+  const { user } = useAuth();
+  const [stats, setStats] = useState<DashboardStats>({
+    totalProducts: 0,
+    onSaleProducts: 0,
+    totalReservations: 0,
+    totalRevenue: 0,
+    pendingProducts: 0,
+  });
   const [recentProducts, setRecentProducts] = useState<ProductResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [sellerId, setSellerId] = useState<string | null>(null);
 
+  // 판매자 정보 가져오기
   useEffect(() => {
-    // TODO: 실제 API 호출
-    const fetchData = async () => {
+    const fetchSellerInfo = async () => {
+      try {
+        const response = await fetch("/api/user/sellers/me");
+        if (response.ok) {
+          const data = await response.json();
+          setSellerId(data.data?.id || data.id);
+        }
+      } catch (error) {
+        console.error("Failed to fetch seller info:", error);
+      }
+    };
+    fetchSellerInfo();
+  }, []);
+
+  // 대시보드 데이터 가져오기
+  useEffect(() => {
+    if (!sellerId) return;
+
+    const fetchDashboardData = async () => {
       setIsLoading(true);
       try {
-        // 더미 데이터 사용
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        setStats(DUMMY_STATS);
-        setRecentProducts(DUMMY_RECENT_PRODUCTS);
+        // 내 상품 목록 조회
+        const productsResponse = await fetch(`/api/products?sellerId=${sellerId}&size=100`);
+
+        if (productsResponse.ok) {
+          const productsData = await productsResponse.json();
+          const products: ProductResponse[] = productsData.data?.content || productsData.content || [];
+
+          // 통계 계산
+          const totalProducts = products.length;
+          const onSaleProducts = products.filter((p) => p.status === "ON_SALE").length;
+          const pendingProducts = products.filter((p) => p.status === "PENDING").length;
+
+          // 총 예매 건수 및 매출 (판매된 좌석 기준)
+          let totalReservations = 0;
+          let totalRevenue = 0;
+
+          products.forEach((p) => {
+            const soldSeats = p.totalSeats - p.availableSeats;
+            totalReservations += soldSeats;
+            // 매출은 실제 API에서 가져와야 하지만, 임시로 평균 가격 계산
+            if (p.seatGrades && p.seatGrades.length > 0) {
+              const avgPrice = p.seatGrades.reduce((sum, g) => sum + g.price, 0) / p.seatGrades.length;
+              totalRevenue += soldSeats * avgPrice;
+            }
+          });
+
+          setStats({
+            totalProducts,
+            onSaleProducts,
+            totalReservations,
+            totalRevenue,
+            pendingProducts,
+          });
+
+          // 최근 상품 5개
+          setRecentProducts(products.slice(0, 5));
+        }
+      } catch (error) {
+        console.error("Failed to fetch dashboard data:", error);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchData();
-  }, []);
+
+    fetchDashboardData();
+  }, [sellerId]);
 
   const productColumns: Column<ProductResponse>[] = [
     {
@@ -214,7 +169,7 @@ export default function SellerDashboardPage() {
               대시보드
             </h1>
             <p className="text-gray-500 dark:text-gray-400 mt-1">
-              판매 현황을 한눈에 확인하세요.
+              {user?.nickname || user?.email}님, 환영합니다!
             </p>
           </div>
           <Link
@@ -233,7 +188,6 @@ export default function SellerDashboardPage() {
           <StatCard
               title="등록 상품"
               value={stats.totalProducts}
-              change={{ value: 12, label: "지난달 대비" }}
               icon={<Icons.Products />}
               color="blue"
           />
@@ -246,14 +200,14 @@ export default function SellerDashboardPage() {
           <StatCard
               title="총 예매 건수"
               value={stats.totalReservations}
-              change={{ value: 8, label: "지난주 대비" }}
               icon={<Icons.Ticket />}
               color="purple"
           />
           <StatCard
               title="총 매출"
-              value={`${(stats.totalRevenue / 100000000).toFixed(1)}억`}
-              change={{ value: 15, label: "지난달 대비" }}
+              value={stats.totalRevenue > 100000000
+                  ? `${(stats.totalRevenue / 100000000).toFixed(1)}억`
+                  : `${(stats.totalRevenue / 10000).toLocaleString()}만`}
               icon={<Icons.Currency />}
               color="orange"
           />
@@ -262,7 +216,9 @@ export default function SellerDashboardPage() {
         {/* 알림 배너 */}
         {stats.pendingProducts > 0 && (
             <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl flex items-center gap-3">
-              <Icons.Clock />
+              <div className="text-yellow-600 dark:text-yellow-400">
+                <Icons.Clock />
+              </div>
               <div className="flex-1">
                 <p className="font-medium text-yellow-800 dark:text-yellow-200">
                   심사 대기 중인 상품이 {stats.pendingProducts}개 있습니다.

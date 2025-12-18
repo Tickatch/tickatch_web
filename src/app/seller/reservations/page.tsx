@@ -3,104 +3,116 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable, Column } from "@/components/dashboard";
+import { ProductResponse } from "@/types/product";
 import { ReservationDetailResponse, RESERVATION_STATUS_LABELS, getReservationStatusColor } from "@/types/reservation";
 import { cn } from "@/lib/utils";
 
-// 더미 예매 목록
-const DUMMY_RESERVATIONS: (ReservationDetailResponse & { productName: string; customerEmail: string })[] = [
-  {
-    id: "res-001",
-    reserverId: "cust-001",
-    reserverName: "홍길동",
-    productId: 1,
-    productName: "2025 아이유 콘서트 - HER",
-    seatId: 101,
-    seatNumber: "A열 15번",
-    price: 154000,
-    status: "CONFIRMED",
-    customerEmail: "hong@email.com",
-  },
-  {
-    id: "res-002",
-    reserverId: "cust-002",
-    reserverName: "김철수",
-    productId: 1,
-    productName: "2025 아이유 콘서트 - HER",
-    seatId: 102,
-    seatNumber: "A열 16번",
-    price: 154000,
-    status: "CONFIRMED",
-    customerEmail: "kim@email.com",
-  },
-  {
-    id: "res-003",
-    reserverId: "cust-003",
-    reserverName: "이영희",
-    productId: 2,
-    productName: "레미제라블 - 10주년 기념 공연",
-    seatId: 201,
-    seatNumber: "B열 10번",
-    price: 121000,
-    status: "PENDING_PAYMENT",
-    customerEmail: "lee@email.com",
-  },
-  {
-    id: "res-004",
-    reserverId: "cust-004",
-    reserverName: "박민수",
-    productId: 1,
-    productName: "2025 아이유 콘서트 - HER",
-    seatId: 103,
-    seatNumber: "VIP석 5번",
-    price: 199000,
-    status: "CANCELED",
-    customerEmail: "park@email.com",
-  },
-  {
-    id: "res-005",
-    reserverId: "cust-005",
-    reserverName: "정수진",
-    productId: 2,
-    productName: "레미제라블 - 10주년 기념 공연",
-    seatId: 202,
-    seatNumber: "S석 22번",
-    price: 99000,
-    status: "CONFIRMED",
-    customerEmail: "jung@email.com",
-  },
-];
+interface ReservationWithProduct extends ReservationDetailResponse {
+  productName: string;
+  customerEmail?: string;
+}
 
 export default function SellerReservationsPage() {
   const router = useRouter();
-  const [reservations, setReservations] = useState<typeof DUMMY_RESERVATIONS>([]);
+  const [sellerId, setSellerId] = useState<string | null>(null);
+  const [reservations, setReservations] = useState<ReservationWithProduct[]>([]);
+  const [products, setProducts] = useState<ProductResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [productFilter, setProductFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
 
+  // 판매자 정보 가져오기
   useEffect(() => {
-    // TODO: 실제 API 호출
-    const fetchReservations = async () => {
+    const fetchSellerInfo = async () => {
+      try {
+        const response = await fetch("/api/user/sellers/me");
+        if (response.ok) {
+          const data = await response.json();
+          setSellerId(data.data?.id || data.id);
+        }
+      } catch (error) {
+        console.error("Failed to fetch seller info:", error);
+      }
+    };
+    fetchSellerInfo();
+  }, []);
+
+  // 상품 및 예매 데이터 가져오기
+  useEffect(() => {
+    if (!sellerId) return;
+
+    const fetchData = async () => {
       setIsLoading(true);
       try {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        setReservations(DUMMY_RESERVATIONS);
+        // 1. 내 상품 목록 조회
+        const productsResponse = await fetch(`/api/products?sellerId=${sellerId}&size=100`);
+
+        if (productsResponse.ok) {
+          const productsData = await productsResponse.json();
+          const myProducts: ProductResponse[] = productsData.data?.content || productsData.content || [];
+          setProducts(myProducts);
+
+          // 2. 각 상품별 예매 좌석 조회 (실제 구현에서는 예매 API 사용)
+          // TODO: 실제 예매 데이터는 예매 API에서 가져와야 함
+          // 현재는 상품 정보 기반으로 더미 데이터 생성
+          const allReservations: ReservationWithProduct[] = [];
+
+          for (const product of myProducts) {
+            const soldSeats = product.totalSeats - product.availableSeats;
+
+            // 더미 예매 데이터 생성 (실제로는 API 호출)
+            for (let i = 0; i < Math.min(soldSeats, 5); i++) {
+              allReservations.push({
+                id: `res-${product.id}-${i}`,
+                reserverId: `cust-${i}`,
+                reserverName: `고객${i + 1}`,
+                productId: product.id,
+                productName: product.name,
+                seatId: i + 1,
+                seatNumber: `A${i + 1}`,
+                price: product.seatGrades?.[0]?.price || 50000,
+                status: i === 0 ? "CONFIRMED" : i === 1 ? "PENDING_PAYMENT" : "CONFIRMED",
+                customerEmail: `customer${i + 1}@email.com`,
+              });
+            }
+          }
+
+          setReservations(allReservations);
+        }
+      } catch (error) {
+        console.error("Failed to fetch reservations:", error);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchReservations();
-  }, []);
 
+    fetchData();
+  }, [sellerId]);
+
+  // 필터링된 예매 목록
   const filteredReservations = reservations.filter((r) => {
     const matchesStatus = statusFilter === "ALL" || r.status === statusFilter;
+    const matchesProduct = productFilter === "ALL" || r.productId.toString() === productFilter;
     const matchesSearch =
         r.reserverName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         r.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         r.seatNumber.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesStatus && matchesSearch;
+    return matchesStatus && matchesProduct && matchesSearch;
   });
 
-  const columns: Column<typeof DUMMY_RESERVATIONS[0]>[] = [
+  // 통계 계산
+  const stats = {
+    total: reservations.length,
+    confirmed: reservations.filter((r) => r.status === "CONFIRMED").length,
+    pending: reservations.filter((r) => r.status === "PENDING_PAYMENT").length,
+    canceled: reservations.filter((r) => r.status === "CANCELED" || r.status === "EXPIRED").length,
+    totalRevenue: reservations
+    .filter((r) => r.status === "CONFIRMED")
+    .reduce((sum, r) => sum + r.price, 0),
+  };
+
+  const columns: Column<ReservationWithProduct>[] = [
     {
       key: "id",
       label: "예매번호",
@@ -147,17 +159,6 @@ export default function SellerReservationsPage() {
     },
   ];
 
-  // 통계 계산
-  const stats = {
-    total: reservations.length,
-    confirmed: reservations.filter((r) => r.status === "CONFIRMED").length,
-    pending: reservations.filter((r) => r.status === "PENDING_PAYMENT").length,
-    canceled: reservations.filter((r) => r.status === "CANCELED" || r.status === "EXPIRED").length,
-    totalRevenue: reservations
-    .filter((r) => r.status === "CONFIRMED")
-    .reduce((sum, r) => sum + r.price, 0),
-  };
-
   return (
       <div className="space-y-6">
         {/* 페이지 헤더 */}
@@ -171,7 +172,7 @@ export default function SellerReservationsPage() {
         </div>
 
         {/* 통계 카드 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
             <p className="text-sm text-gray-500">총 예매</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{stats.total}</p>
@@ -185,15 +186,19 @@ export default function SellerReservationsPage() {
             <p className="text-2xl font-bold text-yellow-500 mt-1">{stats.pending}</p>
           </div>
           <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-            <p className="text-sm text-gray-500">확정 매출</p>
-            <p className="text-2xl font-bold text-blue-500 mt-1">
+            <p className="text-sm text-gray-500">취소/만료</p>
+            <p className="text-2xl font-bold text-red-500 mt-1">{stats.canceled}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-emerald-200 dark:border-emerald-800 p-4">
+            <p className="text-sm text-emerald-600 dark:text-emerald-400">확정 매출</p>
+            <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
               {(stats.totalRevenue / 10000).toLocaleString()}만원
             </p>
           </div>
         </div>
 
         {/* 필터 & 검색 */}
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col md:flex-row gap-4">
           {/* 상태 필터 */}
           <div className="flex flex-wrap gap-2">
             {[
@@ -208,7 +213,7 @@ export default function SellerReservationsPage() {
                     className={cn(
                         "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
                         statusFilter === filter.value
-                            ? "bg-orange-500 text-white"
+                            ? "bg-emerald-500 text-white"
                             : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                     )}
                 >
@@ -216,6 +221,20 @@ export default function SellerReservationsPage() {
                 </button>
             ))}
           </div>
+
+          {/* 상품 필터 */}
+          <select
+              value={productFilter}
+              onChange={(e) => setProductFilter(e.target.value)}
+              className="px-4 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          >
+            <option value="ALL">전체 상품</option>
+            {products.map((product) => (
+                <option key={product.id} value={product.id.toString()}>
+                  {product.name}
+                </option>
+            ))}
+          </select>
 
           {/* 검색 */}
           <div className="flex-1 max-w-md ml-auto">
@@ -233,7 +252,7 @@ export default function SellerReservationsPage() {
                   placeholder="예매자, 상품명, 좌석 검색..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
           </div>
@@ -244,7 +263,6 @@ export default function SellerReservationsPage() {
             columns={columns}
             data={filteredReservations}
             keyField="id"
-            onRowClick={(item) => router.push(`/seller/reservations/${item.id}`)}
             isLoading={isLoading}
             emptyMessage="예매 내역이 없습니다."
         />
