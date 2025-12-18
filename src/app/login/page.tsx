@@ -6,21 +6,42 @@ import LoginCard from "@/components/auth/LoginCard";
 import { ProviderType, LoginResponse } from "@/types/auth";
 import { getOAuthLoginUrl } from "@/lib/api-client";
 import { useOAuthPopup } from "@/hooks/useOAuthPopup";
-import { useAuth } from "@/providers/AuthProvider";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function CustomerLoginPage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading: authLoading, login } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, login, userType } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isOAuthLoading, setIsOAuthLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 이미 로그인된 경우 메인으로 리다이렉트
+  // 이미 로그인된 경우 고객 프로필 확인 후 리다이렉트
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
+      if (userType === "CUSTOMER") {
+        checkCustomerProfile();
+      } else {
+        setError("고객 계정으로 로그인해주세요.");
+      }
+    }
+  }, [authLoading, isAuthenticated, userType]);
+
+  // 고객 프로필 확인
+  const checkCustomerProfile = async () => {
+    try {
+      const response = await fetch("/api/user/customers/me");
+
+      if (response.ok) {
+        router.replace("/");
+      } else if (response.status === 404) {
+        router.replace("/complete-profile");
+      } else {
+        router.replace("/");
+      }
+    } catch {
       router.replace("/");
     }
-  }, [authLoading, isAuthenticated, router]);
+  };
 
   // OAuth 성공 핸들러
   const handleOAuthSuccess = useCallback(
@@ -29,7 +50,17 @@ export default function CustomerLoginPage() {
           setIsOAuthLoading(true);
           setError(null);
           await login(response);
-          router.push("/");
+
+          // OAuth 로그인 후에도 프로필 확인
+          const meResponse = await fetch("/api/user/customers/me");
+
+          if (meResponse.ok) {
+            router.push("/");
+          } else if (meResponse.status === 404) {
+            router.push("/complete-profile");
+          } else {
+            router.push("/");
+          }
         } catch {
           setError("로그인 처리 중 오류가 발생했습니다.");
         } finally {
@@ -68,6 +99,7 @@ export default function CustomerLoginPage() {
     setError(null);
 
     try {
+      // 1. 로그인 요청
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -81,14 +113,23 @@ export default function CustomerLoginPage() {
 
       const result = await response.json();
 
-      // success 체크 추가
       if (!response.ok || !result.success) {
         throw new Error(result.error || "로그인에 실패했습니다.");
       }
 
-      // result.data에서 LoginResponse 추출
+      // 2. 로그인 성공 - AuthProvider에 저장
       await login(result.data as LoginResponse);
-      router.push("/");
+
+      // 3. 고객 정보 확인
+      const meResponse = await fetch("/api/user/customers/me");
+
+      if (meResponse.ok) {
+        router.push("/");
+      } else if (meResponse.status === 404) {
+        router.push("/complete-profile");
+      } else {
+        router.push("/");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "로그인에 실패했습니다.");
     } finally {
@@ -112,9 +153,16 @@ export default function CustomerLoginPage() {
     );
   }
 
-  // 이미 로그인된 경우
-  if (isAuthenticated) {
-    return null;
+  // 이미 로그인된 경우 - 프로필 확인 중
+  if (isAuthenticated && userType === "CUSTOMER") {
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-gray-500 dark:text-gray-400">확인 중...</p>
+          </div>
+        </div>
+    );
   }
 
   return (
