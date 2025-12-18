@@ -3,8 +3,52 @@ import {
   getAccessTokenFromRequest,
   createAuthHeaders,
 } from "@/lib/auth-utils";
+import type { ReservationSeatResponse } from "@/types/reservation-seat";
+import type { ApiResponse } from "@/types/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+/**
+ * GET /api/reservation-seats - 예매 좌석 목록 조회
+ * Query params: productId (필수)
+ * 인증 선택 (토큰 있으면 전달)
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const accessToken = await getAccessTokenFromRequest(request);
+    const searchParams = request.nextUrl.searchParams;
+    const productId = searchParams.get("productId");
+
+    if (!productId) {
+      return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: { code: "BAD_REQUEST", message: "productId는 필수입니다.", status: 400 } },
+          { status: 400 }
+      );
+    }
+
+    const response = await fetch(`${API_URL}/reservation-seats?productId=${productId}`, {
+      headers: createAuthHeaders(accessToken),
+      cache: "no-store",
+    });
+
+    const data: ApiResponse<ReservationSeatResponse[]> = await response.json();
+
+    if (!response.ok) {
+      return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: data.error || { code: "FETCH_ERROR", message: "예매 좌석 조회에 실패했습니다.", status: response.status } },
+          { status: response.status }
+      );
+    }
+
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error("ReservationSeat list error:", error);
+    return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다.", status: 500 } },
+        { status: 500 }
+    );
+  }
+}
 
 /**
  * POST /api/reservation-seats - 예매 좌석 생성 (벌크)

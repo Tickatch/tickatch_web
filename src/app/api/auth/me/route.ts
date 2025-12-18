@@ -13,10 +13,18 @@ export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies();
 
-    // Referer에서 현재 경로 추출 (어느 페이지에서 요청했는지)
-    const referer = request.headers.get("referer") || "";
-    const url = new URL(referer, request.url);
-    const pathname = url.pathname;
+    // X-Current-Path 헤더 우선, 없으면 Referer에서 추출
+    let pathname = request.headers.get("x-current-path") || "";
+
+    if (!pathname) {
+      const referer = request.headers.get("referer") || "";
+      try {
+        const url = new URL(referer, request.url);
+        pathname = url.pathname;
+      } catch {
+        pathname = "/";
+      }
+    }
 
     // 경로 기반으로 userType 결정
     const userType = getUserTypeFromPath(pathname);
@@ -25,11 +33,11 @@ export async function GET(request: NextRequest) {
     const accessToken = cookieStore.get(tokenNames.accessToken)?.value;
 
     if (!accessToken) {
-      return NextResponse.json({
-        user: null,
-        userType: null,
-        isAuthenticated: false,
-      });
+      // 토큰이 없으면 401 반환 (refresh 시도 유도)
+      return NextResponse.json(
+          { user: null, userType: null, isAuthenticated: false },
+          { status: 401 }
+      );
     }
 
     // 사용자 정보 조회
@@ -38,11 +46,11 @@ export async function GET(request: NextRequest) {
     });
 
     if (!response.ok) {
-      return NextResponse.json({
-        user: null,
-        userType: null,
-        isAuthenticated: false,
-      });
+      // 토큰이 유효하지 않으면 401 반환
+      return NextResponse.json(
+          { user: null, userType: null, isAuthenticated: false },
+          { status: 401 }
+      );
     }
 
     const user = await response.json();
@@ -53,10 +61,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Auth check error:", error);
-    return NextResponse.json({
-      user: null,
-      userType: null,
-      isAuthenticated: false,
-    });
+    return NextResponse.json(
+        { user: null, userType: null, isAuthenticated: false },
+        { status: 500 }
+    );
   }
 }
