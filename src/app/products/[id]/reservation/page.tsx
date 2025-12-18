@@ -42,6 +42,10 @@ function ReservationContent({ productId }: { productId: string }) {
   const [step, setStep] = useState<"select" | "payment">("select");
   const [createdReservations, setCreatedReservations] = useState<ReservationResponse[]>([]);
 
+  // 대기열 검증 상태
+  const [isQueueVerified, setIsQueueVerified] = useState(false);
+  const [isQueueChecking, setIsQueueChecking] = useState(true);
+
   // 결제 실패 모달 상태
   const [showFailModal, setShowFailModal] = useState(false);
   const [failMessage, setFailMessage] = useState("");
@@ -73,7 +77,6 @@ function ReservationContent({ productId }: { productId: string }) {
 
   // 결제 실패 핸들러
   const handlePaymentFail = useCallback(async (data: { code: string; message: string; orderId?: string }) => {
-    // 백엔드에 실패 알림 (선택적)
     if (data.orderId) {
       try {
         await fetch(
@@ -98,9 +101,6 @@ function ReservationContent({ productId }: { productId: string }) {
 
   // 결제 팝업 훅
   const { openPaymentPopup } = usePaymentPopup({
-    // onSuccess: handlePaymentSuccess,
-    // onFail: handlePaymentFail,
-    // onCancel: handlePaymentCancel,
     onSuccess: (data) => {
       console.log("[ReservationPage] onSuccess 호출됨:", data);
       handlePaymentSuccess(data);
@@ -122,9 +122,53 @@ function ReservationContent({ productId }: { productId: string }) {
     }
   }, [authLoading, isAuthenticated, productId, router]);
 
-  // 데이터 로드
+  // 대기열 검증 - 페이지 접근 시 status 확인
+  useEffect(() => {
+    const verifyQueueAccess = async () => {
+      if (!isAuthenticated || authLoading) return;
+
+      setIsQueueChecking(true);
+
+      try {
+        const res = await fetch("/api/queue/status", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        const result = await res.json();
+
+        if (!result.success) {
+          // 대기열에 등록되지 않았거나 에러 발생
+          console.log("Queue verification failed:", result);
+          router.push(`/products/${productId}`);
+          return;
+        }
+
+        // 입장 가능 여부 확인
+        // 입장 가능: message가 "입장 가능합니다."이고 data가 null
+        if (result.message === "입장 가능합니다." && !result.data) {
+          setIsQueueVerified(true);
+        } else {
+          // 아직 대기 중이면 상품 상세 페이지로 리다이렉트
+          console.log("Queue not ready, redirecting...");
+          router.push(`/products/${productId}`);
+        }
+      } catch (error) {
+        console.error("Queue verification error:", error);
+        router.push(`/products/${productId}`);
+      } finally {
+        setIsQueueChecking(false);
+      }
+    };
+
+    verifyQueueAccess();
+  }, [isAuthenticated, authLoading, productId, router]);
+
+  // 데이터 로드 - 대기열 검증 후에만 실행
   useEffect(() => {
     const fetchData = async () => {
+      if (!isQueueVerified) return;
+
       setIsLoading(true);
       setError(null);
 
@@ -197,10 +241,10 @@ function ReservationContent({ productId }: { productId: string }) {
       }
     };
 
-    if (productId && !authLoading && isAuthenticated) {
+    if (productId && !authLoading && isAuthenticated && isQueueVerified) {
       fetchData();
     }
-  }, [productId, authLoading, isAuthenticated]);
+  }, [productId, authLoading, isAuthenticated, isQueueVerified]);
 
   // 좌석 선택/해제
   const handleSeatSelect = useCallback((seat: SelectableSeatInfo) => {
@@ -250,7 +294,6 @@ function ReservationContent({ productId }: { productId: string }) {
     setIsProcessing(true);
 
     try {
-      // 선택한 좌석별로 예약 생성
       const reservations: ReservationResponse[] = [];
 
       for (const seat of selectedSeats) {
@@ -299,7 +342,6 @@ function ReservationContent({ productId }: { productId: string }) {
     setIsProcessing(true);
 
     try {
-      // 결제 생성 요청
       const paymentItems: PaymentItem[] = createdReservations.map((r) => ({
         reservationId: r.id,
         price: r.price || 0,
@@ -321,18 +363,15 @@ function ReservationContent({ productId }: { productId: string }) {
         throw new Error(result.error?.message || "결제 생성에 실패했습니다.");
       }
 
-      // 백엔드에서 받은 Toss 결제 페이지 URL
       const checkoutUrl = result.data.checkoutUrl;
 
       if (!checkoutUrl) {
-        // checkoutUrl이 없으면 실패 모달 표시
         setFailMessage("결제 URL을 받지 못했습니다. 다시 시도해 주세요.");
         setShowFailModal(true);
         setIsProcessing(false);
         return;
       }
 
-      // 팝업으로 결제 페이지 열기
       openPaymentPopup(checkoutUrl);
 
     } catch (error) {
@@ -343,13 +382,48 @@ function ReservationContent({ productId }: { productId: string }) {
     }
   };
 
-  // 다시 결제하기 (실패 모달에서 호출)
+  // 다시 결제하기
   const handleRetryPayment = () => {
     handlePayment();
   };
 
-  // 로딩 중
-  if (authLoading || isLoading) {
+  // 대기열 검증 중 또는 로딩 중
+  if (authLoading || isQueueChecking) {
+    return (
+        <>
+          <Header userType={userType || "CUSTOMER"} />
+          <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950">
+            <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+            <p className="mt-4 text-gray-500 dark:text-gray-400">
+              {isQueueChecking ? "접근 권한 확인 중..." : "로딩 중..."}
+            </p>
+          </div>
+        </>
+    );
+  }
+
+  // 대기열 검증 실패 (이미 리다이렉트 되지만, fallback으로)
+  if (!isQueueVerified) {
+    return (
+        <>
+          <Header userType={userType || "CUSTOMER"} />
+          <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950">
+            <p className="text-gray-500 dark:text-gray-400 mb-4">
+              대기열을 통해 접근해주세요.
+            </p>
+            <button
+                onClick={() => router.push(`/products/${productId}`)}
+                className="text-orange-500 hover:underline"
+            >
+              상품 페이지로 이동
+            </button>
+          </div>
+        </>
+    );
+  }
+
+  // 데이터 로딩 중
+  if (isLoading) {
     return (
         <>
           <Header userType={userType || "CUSTOMER"} />
