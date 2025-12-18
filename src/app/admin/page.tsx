@@ -3,124 +3,9 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { StatCard, DataTable, Column } from "@/components/dashboard";
-import { ProductResponse, PRODUCT_STATUS_LABELS, getStatusColor } from "@/types/product";
+import { ProductResponse, PRODUCT_STATUS_LABELS, getStatusColor, getProductTypeColor, PRODUCT_TYPE_LABELS } from "@/types/product";
+import { ApiResponse, PageResponse } from "@/types/api";
 import { cn } from "@/lib/utils";
-
-// 더미 통계
-const DUMMY_STATS = {
-  totalArtHalls: 15,
-  totalProducts: 48,
-  pendingProducts: 3,
-  totalSellers: 24,
-  totalCustomers: 12580,
-  todayReservations: 328,
-};
-
-// 더미 심사 대기 상품
-const DUMMY_PENDING_PRODUCTS: ProductResponse[] = [
-  {
-    id: 3,
-    name: "2025 프로야구 개막전",
-    productType: "SPORTS",
-    status: "PENDING",
-    startAt: "2025-03-29T14:00:00",
-    endAt: "2025-03-29T17:00:00",
-    saleStartAt: "2025-03-15T10:00:00",
-    saleEndAt: "2025-03-28T23:59:59",
-    runningTime: 180,
-    stageId: 3,
-    stageName: "메인 구장",
-    artHallId: 3,
-    artHallName: "고척스카이돔",
-    artHallAddress: "서울특별시 구로구 경인로 430",
-    ageRating: "ALL",
-    maxTicketsPerPerson: 4,
-    idVerificationRequired: false,
-    transferable: true,
-    admissionMinutesBefore: 60,
-    lateEntryAllowed: true,
-    hasIntermission: false,
-    intermissionMinutes: 0,
-    photographyAllowed: true,
-    foodAllowed: true,
-    cancellable: true,
-    cancelDeadlineDays: 1,
-    totalSeats: 16000,
-    availableSeats: 16000,
-    viewCount: 0,
-    sellerId: "seller-001",
-    createdAt: "2025-02-20T14:00:00",
-    updatedAt: "2025-02-20T14:00:00",
-  },
-  {
-    id: 5,
-    name: "2025 BTS 월드투어 서울",
-    productType: "CONCERT",
-    status: "PENDING",
-    startAt: "2025-06-01T18:00:00",
-    endAt: "2025-06-03T21:00:00",
-    saleStartAt: "2025-04-01T10:00:00",
-    saleEndAt: "2025-05-31T23:59:59",
-    runningTime: 180,
-    stageId: 1,
-    stageName: "메인홀",
-    artHallId: 1,
-    artHallName: "올림픽공원 KSPO DOME",
-    artHallAddress: "서울특별시 송파구 올림픽로 424",
-    ageRating: "ALL",
-    maxTicketsPerPerson: 2,
-    idVerificationRequired: true,
-    transferable: false,
-    admissionMinutesBefore: 60,
-    lateEntryAllowed: false,
-    hasIntermission: false,
-    intermissionMinutes: 0,
-    photographyAllowed: false,
-    foodAllowed: false,
-    cancellable: true,
-    cancelDeadlineDays: 7,
-    totalSeats: 15000,
-    availableSeats: 15000,
-    viewCount: 0,
-    sellerId: "seller-002",
-    createdAt: "2025-02-22T09:00:00",
-    updatedAt: "2025-02-22T09:00:00",
-  },
-  {
-    id: 6,
-    name: "오페라의 유령 - 25주년 기념",
-    productType: "MUSICAL",
-    status: "PENDING",
-    startAt: "2025-05-15T19:30:00",
-    endAt: "2025-08-15T21:30:00",
-    saleStartAt: "2025-04-15T10:00:00",
-    saleEndAt: "2025-08-14T23:59:59",
-    runningTime: 150,
-    stageId: 3,
-    stageName: "대극장",
-    artHallId: 2,
-    artHallName: "블루스퀘어",
-    artHallAddress: "서울특별시 용산구 이태원로 294",
-    ageRating: "TWELVE",
-    maxTicketsPerPerson: 4,
-    idVerificationRequired: false,
-    transferable: true,
-    admissionMinutesBefore: 30,
-    lateEntryAllowed: false,
-    hasIntermission: true,
-    intermissionMinutes: 20,
-    photographyAllowed: false,
-    foodAllowed: false,
-    cancellable: true,
-    cancelDeadlineDays: 3,
-    totalSeats: 1500,
-    availableSeats: 1500,
-    viewCount: 0,
-    sellerId: "seller-003",
-    createdAt: "2025-02-23T11:00:00",
-    updatedAt: "2025-02-23T11:00:00",
-  },
-];
 
 // 아이콘
 const Icons = {
@@ -146,23 +31,87 @@ const Icons = {
   ),
 };
 
+interface DashboardStats {
+  totalProducts: number;
+  pendingProducts: number;
+  onSaleProducts: number;
+  totalSellers: number;
+  totalCustomers: number;
+}
+
 export default function AdminDashboardPage() {
-  const [stats, setStats] = useState(DUMMY_STATS);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalProducts: 0,
+    pendingProducts: 0,
+    onSaleProducts: 0,
+    totalSellers: 0,
+    totalCustomers: 0,
+  });
   const [pendingProducts, setPendingProducts] = useState<ProductResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // TODO: 실제 API 호출
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        setStats(DUMMY_STATS);
-        setPendingProducts(DUMMY_PENDING_PRODUCTS);
+        // 심사 대기 상품 조회
+        const pendingRes = await fetch("/api/products?status=PENDING&size=5");
+        const pendingData: ApiResponse<PageResponse<ProductResponse>> = await pendingRes.json();
+
+        if (pendingRes.ok && pendingData.success) {
+          setPendingProducts(pendingData.data?.content || []);
+          setStats(prev => ({
+            ...prev,
+            pendingProducts: pendingData.data?.pageInfo?.totalElements || 0,
+          }));
+        }
+
+        // 전체 상품 수 조회
+        const allProductsRes = await fetch("/api/products?size=1");
+        const allProductsData: ApiResponse<PageResponse<ProductResponse>> = await allProductsRes.json();
+        if (allProductsRes.ok && allProductsData.success) {
+          setStats(prev => ({
+            ...prev,
+            totalProducts: allProductsData.data?.pageInfo?.totalElements || 0,
+          }));
+        }
+
+        // 판매중 상품 수 조회
+        const onSaleRes = await fetch("/api/products?status=ON_SALE&size=1");
+        const onSaleData: ApiResponse<PageResponse<ProductResponse>> = await onSaleRes.json();
+        if (onSaleRes.ok && onSaleData.success) {
+          setStats(prev => ({
+            ...prev,
+            onSaleProducts: onSaleData.data?.pageInfo?.totalElements || 0,
+          }));
+        }
+
+        // 판매자 수 조회
+        const sellersRes = await fetch("/api/user/sellers?size=1");
+        const sellersData = await sellersRes.json();
+        if (sellersRes.ok && sellersData.success) {
+          setStats(prev => ({
+            ...prev,
+            totalSellers: sellersData.data?.pageInfo?.totalElements || 0,
+          }));
+        }
+
+        // 구매자 수 조회
+        const customersRes = await fetch("/api/user/customers?size=1");
+        const customersData = await customersRes.json();
+        if (customersRes.ok && customersData.success) {
+          setStats(prev => ({
+            ...prev,
+            totalCustomers: customersData.data?.pageInfo?.totalElements || 0,
+          }));
+        }
+      } catch (error) {
+        console.error("Dashboard data fetch error:", error);
       } finally {
         setIsLoading(false);
       }
     };
+
     fetchData();
   }, []);
 
@@ -178,10 +127,19 @@ export default function AdminDashboardPage() {
       ),
     },
     {
+      key: "productType",
+      label: "유형",
+      render: (item) => (
+          <span className={cn("px-2 py-1 rounded-full text-xs font-medium", getProductTypeColor(item.productType))}>
+          {PRODUCT_TYPE_LABELS[item.productType]}
+        </span>
+      ),
+    },
+    {
       key: "sellerId",
       label: "판매자",
       render: (item) => (
-          <span className="text-gray-600 dark:text-gray-400">{item.sellerId}</span>
+          <span className="text-gray-600 dark:text-gray-400 font-mono text-xs">{item.sellerId.slice(0, 8)}...</span>
       ),
     },
     {
@@ -202,28 +160,13 @@ export default function AdminDashboardPage() {
       key: "actions",
       label: "",
       render: (item) => (
-          <div className="flex items-center gap-2">
-            <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // TODO: 승인 처리
-                  alert(`${item.name} 승인 처리`);
-                }}
-                className="px-3 py-1 text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50"
-            >
-              승인
-            </button>
-            <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // TODO: 반려 처리
-                  alert(`${item.name} 반려 처리`);
-                }}
-                className="px-3 py-1 text-xs bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50"
-            >
-              반려
-            </button>
-          </div>
+          <Link
+              href={`/admin/products/${item.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="px-3 py-1 text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-900/50"
+          >
+            심사하기
+          </Link>
       ),
     },
   ];
@@ -243,14 +186,14 @@ export default function AdminDashboardPage() {
         {/* 통계 카드 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard
-              title="등록 공연장"
-              value={stats.totalArtHalls}
-              icon={<Icons.Building />}
+              title="전체 상품"
+              value={stats.totalProducts}
+              icon={<Icons.Products />}
               color="blue"
           />
           <StatCard
-              title="등록 상품"
-              value={stats.totalProducts}
+              title="판매중"
+              value={stats.onSaleProducts}
               icon={<Icons.Products />}
               color="green"
           />
@@ -281,7 +224,7 @@ export default function AdminDashboardPage() {
                 </p>
               </div>
               <Link
-                  href="/admin/products"
+                  href="/admin/products/pending"
                   className="px-4 py-2 bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-200 rounded-lg text-sm font-medium hover:bg-orange-200 dark:hover:bg-orange-900/60 transition-colors"
               >
                 심사하기
@@ -296,7 +239,7 @@ export default function AdminDashboardPage() {
               심사 대기 상품
             </h2>
             <Link
-                href="/admin/products"
+                href="/admin/products/pending"
                 className="text-sm text-purple-500 hover:text-purple-600 font-medium"
             >
               전체보기 →

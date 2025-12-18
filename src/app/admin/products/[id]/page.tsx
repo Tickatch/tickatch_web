@@ -14,11 +14,12 @@ import {
 import { SellerResponse } from "@/types/user";
 import {
   ReservationSeatResponse,
+  RESERVATION_SEAT_STATUS_LABELS,
+  getReservationSeatStatusColor,
   getGradeBgColor,
 } from "@/types/reservation-seat";
 import { ApiResponse } from "@/types/api";
 import { cn } from "@/lib/utils";
-import SeatGrid, { StageSeatInfo, ReservationSeatInfo } from "@/components/common/SeatGrid";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -31,7 +32,6 @@ export default function AdminProductDetailPage({ params }: Props) {
   const [product, setProduct] = useState<ProductResponse | null>(null);
   const [seller, setSeller] = useState<SellerResponse | null>(null);
   const [seats, setSeats] = useState<ReservationSeatResponse[]>([]);
-  const [stageSeats, setStageSeats] = useState<StageSeatInfo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,9 +42,6 @@ export default function AdminProductDetailPage({ params }: Props) {
 
   // 좌석 탭
   const [seatTab, setSeatTab] = useState<"ALL" | "AVAILABLE" | "RESERVED">("ALL");
-
-  // 좌석 배치도 표시 여부
-  const [showSeatMap, setShowSeatMap] = useState(false);
 
   // 데이터 로드
   useEffect(() => {
@@ -96,27 +93,6 @@ export default function AdminProductDetailPage({ params }: Props) {
 
     fetchData();
   }, [id]);
-
-  // 스테이지 좌석 배치 조회 (product.stageId가 있을 때)
-  useEffect(() => {
-    if (!product?.stageId) return;
-
-    const fetchStageSeats = async () => {
-      try {
-        const response = await fetch(`/api/arthalls/stages/${product.stageId}/stage-seats`);
-        if (response.ok) {
-          const data = await response.json();
-          const seatList = data.data?.content || data.data || data.content || [];
-          // ACTIVE 상태인 좌석만 필터링 (API 응답 그대로 사용)
-          setStageSeats(seatList.filter((s: StageSeatInfo) => s.status === "ACTIVE"));
-        }
-      } catch (err) {
-        console.error("스테이지 좌석 조회 실패:", err);
-      }
-    };
-
-    fetchStageSeats();
-  }, [product?.stageId]);
 
   // 상품 승인
   const handleApprove = async () => {
@@ -191,15 +167,6 @@ export default function AdminProductDetailPage({ params }: Props) {
     preempted: seats.filter((s) => s.status === "PREEMPTED").length,
   };
 
-  // SeatGrid용 예약 좌석 데이터 변환
-  const reservationSeatsForGrid: ReservationSeatInfo[] = seats.map((s) => ({
-    id: s.id,
-    seatNumber: s.seatNumber,
-    grade: s.grade,
-    price: s.price,
-    status: s.status as "AVAILABLE" | "PREEMPTED" | "RESERVED",
-  }));
-
   if (isLoading) {
     return (
         <div className="flex items-center justify-center min-h-[400px]">
@@ -260,44 +227,6 @@ export default function AdminProductDetailPage({ params }: Props) {
               </div>
           )}
         </div>
-
-        {/* 좌석 배치도 (펼치기/접기) */}
-        {stageSeats.length > 0 && seats.length > 0 && (
-            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
-              <button
-                  onClick={() => setShowSeatMap(!showSeatMap)}
-                  className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">좌석 배치도</h2>
-                  <span className="text-sm text-gray-500">
-                  총 {seatStats.total}석 |
-                  <span className="text-green-600 ml-1">가능 {seatStats.available}</span>
-                    {seatStats.preempted > 0 && <span className="text-yellow-600 ml-1">선점 {seatStats.preempted}</span>}
-                    {seatStats.reserved > 0 && <span className="text-blue-600 ml-1">예약 {seatStats.reserved}</span>}
-                </span>
-                </div>
-                <svg
-                    className={cn("w-5 h-5 text-gray-500 transition-transform", showSeatMap && "rotate-180")}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              {showSeatMap && (
-                  <div className="px-6 pb-6">
-                    <SeatGrid
-                        mode="view"
-                        stageSeats={stageSeats}
-                        reservationSeats={reservationSeatsForGrid}
-                    />
-                  </div>
-              )}
-            </div>
-        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* 상품 정보 */}
@@ -393,7 +322,7 @@ export default function AdminProductDetailPage({ params }: Props) {
               </div>
             </div>
 
-            {/* 좌석 현황 (리스트 뷰) */}
+            {/* 좌석 현황 */}
             {seats.length > 0 && (
                 <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">좌석 현황</h2>
@@ -550,10 +479,6 @@ export default function AdminProductDetailPage({ params }: Props) {
                 <div className="flex justify-between">
                   <span className="text-gray-500">상품 ID</span>
                   <span className="font-mono">{product.id}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">스테이지 ID</span>
-                  <span className="font-mono">{product.stageId}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">총 좌석</span>

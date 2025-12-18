@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import LoginCard from "@/components/auth/LoginCard";
 import { LoginResponse } from "@/types/auth";
-import { useAuth } from "@/providers/AuthProvider";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function AdminLoginPage() {
   const router = useRouter();
