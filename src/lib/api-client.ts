@@ -3,6 +3,9 @@
 type RefreshFunction = () => Promise<string | null>;
 type GetTokenFunction = () => string | null;
 
+// Refresh 중복 요청 방지
+let apiRefreshPromise: Promise<string | null> | null = null;
+
 class ApiClient {
   // Next.js API Route를 통해 프록시 (쿠키 기반 인증)
   private baseUrl = "/api";
@@ -119,7 +122,7 @@ class ApiClient {
   }
 
   // ========================================
-  // 핵심 fetch 로직 (401 자동 갱신)
+  // 핵심 fetch 로직 (401 자동 갱신, 중복 방지)
   // ========================================
   private async fetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
@@ -129,7 +132,14 @@ class ApiClient {
 
     // 401이면 토큰 갱신 후 재시도
     if (response.status === 401) {
-      const newToken = await this.refreshToken();
+      // 중복 요청 방지: 이미 진행 중인 refresh가 있으면 기다림
+      if (!apiRefreshPromise) {
+        apiRefreshPromise = this.refreshToken().finally(() => {
+          apiRefreshPromise = null;
+        });
+      }
+
+      const newToken = await apiRefreshPromise;
 
       if (newToken) {
         // 토큰 갱신 성공 → 재요청
