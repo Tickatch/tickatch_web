@@ -3,31 +3,31 @@ import {
   getAccessTokenFromRequest,
   createAuthHeaders,
 } from "@/lib/auth-utils";
+import type { ApiResponse } from "@/types/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 /**
  * GET /api/user/admins/count - 역할별 활성 관리자 수 조회
- * Query params: role
- * 인증 필수
+ * @param request.searchParams.role - AdminRole (필수)
+ * @returns ApiResponse<number>
  */
 export async function GET(request: NextRequest) {
   try {
     const accessToken = await getAccessTokenFromRequest(request);
 
     if (!accessToken) {
-      return NextResponse.json(
-          { error: "로그인이 필요합니다." },
+      return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: { code: "UNAUTHORIZED", message: "로그인이 필요합니다.", status: 401 } },
           { status: 401 }
       );
     }
 
-    const searchParams = request.nextUrl.searchParams;
-    const role = searchParams.get("role");
+    const role = request.nextUrl.searchParams.get("role");
 
     if (!role) {
-      return NextResponse.json(
-          { error: "역할(role)은 필수입니다." },
+      return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: { code: "BAD_REQUEST", message: "role 파라미터가 필요합니다.", status: 400 } },
           { status: 400 }
       );
     }
@@ -37,20 +37,20 @@ export async function GET(request: NextRequest) {
       cache: "no-store",
     });
 
-    const data = await response.json();
+    const data: ApiResponse<number> = await response.json();
 
     if (!response.ok) {
-      return NextResponse.json(
-          { error: data.message || "관리자 수 조회에 실패했습니다." },
+      return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: data.error || { code: "FETCH_ERROR", message: "관리자 수 조회에 실패했습니다.", status: response.status } },
           { status: response.status }
       );
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json<ApiResponse<number>>(data);
   } catch (error) {
     console.error("Admin count error:", error);
-    return NextResponse.json(
-        { error: "서버 오류가 발생했습니다." },
+    return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다.", status: 500 } },
         { status: 500 }
     );
   }
