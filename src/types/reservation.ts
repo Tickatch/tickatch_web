@@ -27,7 +27,7 @@ export const RESERVATION_STATUS_LABELS: Record<ReservationStatus, string> = {
 
 // ========== Request DTOs ==========
 
-/** 예매 생성 요청 */
+/** 예매 생성 요청 (단일 좌석) */
 export interface CreateReservationRequest {
   reserverId: string;      // UUID
   reserverName: string;
@@ -35,21 +35,28 @@ export interface CreateReservationRequest {
   productName: string;
   seatId: number;
   seatNumber: string;
-  price: number;
+  price: number | null;
+}
+
+/** 예매 생성 요청 (다중 좌석) */
+export interface CreateReservationsRequest {
+  reservations: CreateReservationRequest[];
 }
 
 // ========== Response DTOs ==========
 
-/** 예매 응답 (목록용) */
+/** 예매 응답 (목록용) - ReservationResponse */
 export interface ReservationResponse {
   id: string;              // UUID
   reserverId: string;      // UUID
   productId: number;
   seatId: number;
-  price: number;
+  price: number | null;
+  status: ReservationStatus;
+  reservationNumber: string;
 }
 
-/** 예매 상세 응답 */
+/** 예매 상세 응답 - ReservationDetailResponse */
 export interface ReservationDetailResponse {
   id: string;              // UUID
   reserverId: string;      // UUID
@@ -58,8 +65,11 @@ export interface ReservationDetailResponse {
   productName: string;
   seatId: number;
   seatNumber: string;
-  price: number;
+  price: number | null;
   status: ReservationStatus;
+  reservationNumber: string;
+  createdAt: string;       // ISO DateTime
+  updatedAt: string;       // ISO DateTime
 }
 
 /** 예매 확정 상태 응답 */
