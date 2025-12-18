@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import {
+  getAccessTokenFromRequest,
+  createAuthHeaders,
+} from "@/lib/auth-utils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 /**
  * GET /api/arthalls/stages/[stageId]/stage-seats - 좌석 목록 조회
- * Query params: seatNumber
+ * 인증 선택
  */
 export async function GET(
     request: NextRequest,
@@ -13,6 +16,8 @@ export async function GET(
 ) {
   try {
     const { stageId } = await params;
+    const accessToken = await getAccessTokenFromRequest(request);
+
     const searchParams = request.nextUrl.searchParams;
     const queryString = searchParams.toString();
 
@@ -21,7 +26,7 @@ export async function GET(
         : `${API_URL}/arthalls/stages/${stageId}/stage-seats`;
 
     const response = await fetch(url, {
-      headers: { "Content-Type": "application/json" },
+      headers: createAuthHeaders(accessToken),
       cache: "no-store",
     });
 
@@ -45,7 +50,8 @@ export async function GET(
 }
 
 /**
- * POST /api/arthalls/stages/[stageId]/stage-seats - 좌석 등록 (여러개)
+ * POST /api/arthalls/stages/[stageId]/stage-seats - 좌석 등록
+ * 인증 필수
  */
 export async function POST(
     request: NextRequest,
@@ -53,8 +59,7 @@ export async function POST(
 ) {
   try {
     const { stageId } = await params;
-    const cookieStore = await cookies();
-    const accessToken = cookieStore.get("access_token")?.value;
+    const accessToken = await getAccessTokenFromRequest(request);
 
     if (!accessToken) {
       return NextResponse.json(
@@ -67,10 +72,7 @@ export async function POST(
 
     const response = await fetch(`${API_URL}/arthalls/stages/${stageId}/stage-seats`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
+      headers: createAuthHeaders(accessToken),
       body: JSON.stringify(body),
     });
 
@@ -85,7 +87,7 @@ export async function POST(
 
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
-    console.error("Stage seats register error:", error);
+    console.error("Stage seats create error:", error);
     return NextResponse.json(
         { error: "서버 오류가 발생했습니다." },
         { status: 500 }
