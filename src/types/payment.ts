@@ -23,6 +23,13 @@ export type PaymentMethod =
     | "KAKAO_PAY"   // 카카오페이
     | "NAVER_PAY";  // 네이버페이
 
+/** 환불 사유 */
+export type RefundReason =
+    | "USER_REQUEST"    // 사용자 요청
+    | "ADMIN_REQUEST"   // 관리자 요청
+    | "SYSTEM_ERROR"    // 시스템 오류
+    | "EVENT_CANCELED"; // 행사 취소
+
 // ========== Labels ==========
 
 export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
@@ -43,78 +50,72 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   NAVER_PAY: "네이버페이",
 };
 
+export const REFUND_REASON_LABELS: Record<RefundReason, string> = {
+  USER_REQUEST: "사용자 요청",
+  ADMIN_REQUEST: "관리자 요청",
+  SYSTEM_ERROR: "시스템 오류",
+  EVENT_CANCELED: "행사 취소",
+};
+
 // ========== Request DTOs ==========
 
-/** 결제 요청 (예매용) */
-export interface PaymentRequest {
-  /** 상품 ID */
-  productId: number;
-  /** 선택한 좌석 ID 목록 */
-  seatIds: number[];
-  /** 총 결제 금액 */
-  amount: number;
-  /** 주문명 (예: "뮤지컬 위키드 - A1, A2") */
-  orderName: string;
-  /** 결제 수단 (선택) */
-  method?: PaymentMethod;
+/** 결제 항목 (개별) */
+export interface PaymentItem {
+  reservationId: string;   // UUID
+  price: number;
 }
 
-/** 결제 확정 요청 */
-export interface PaymentConfirmRequest {
-  /** 결제 키 (토스에서 받은 paymentKey) */
-  paymentKey: string;
-  /** 주문 ID */
-  orderId: string;
-  /** 결제 금액 */
-  amount: number;
+/** 결제 생성 요청 - CreatePaymentRequest */
+export interface CreatePaymentRequest {
+  payments: PaymentItem[];
+}
+
+/** 환불 요청 - RefundPaymentRequest */
+export interface RefundPaymentRequest {
+  reason: RefundReason | string;
+  reservationIds: string[];  // UUID[]
 }
 
 // ========== Response DTOs ==========
 
-/** 결제 응답 */
-export interface PaymentResponse {
-  /** 결제 ID */
-  paymentId: string;
-  /** 주문 ID */
+/** 결제 성공 콜백 파라미터 */
+export interface PaymentSuccessParams {
+  paymentKey: string;
   orderId: string;
-  /** 결제 상태 */
-  status: PaymentStatus;
-  /** 결제창 URL (있으면 팝업으로 열기) */
-  checkoutUrl?: string;
-  /** 결제 금액 */
   amount: number;
-  /** 메시지 */
+}
+
+/** 결제 실패 콜백 파라미터 */
+export interface PaymentFailParams {
+  code: string;
+  message?: string;
+  orderId: string;
+}
+
+// ========== 프론트엔드용 (Toss Payments 연동) ==========
+
+/** 토스 결제 요청 옵션 */
+export interface TossPaymentRequestOptions {
+  method: string;
+  amount: { currency: string; value: number };
+  orderId: string;
+  orderName: string;
+  customerName: string;
+  successUrl: string;
+  failUrl: string;
+}
+
+/** 결제 응답 (프론트용) */
+export interface PaymentResponse {
+  orderId: string;
+  checkoutUrl?: string;
   message?: string;
 }
 
-/** 결제 확정 응답 */
+/** 결제 확정 응답 (프론트용) */
 export interface PaymentConfirmResponse {
-  /** 결제 ID */
-  paymentId: string;
-  /** 주문 ID */
-  orderId: string;
-  /** 결제 키 */
-  paymentKey: string;
-  /** 예매 ID */
-  reservationId: string;
-  /** 결제 상태 */
-  status: PaymentStatus;
-  /** 결제 금액 */
-  amount: number;
-  /** 결제 완료 시간 */
-  approvedAt: string;
-}
-
-/** 결제 내역 응답 */
-export interface PaymentHistoryResponse {
-  paymentId: string;
-  orderId: string;
-  orderName: string;
-  amount: number;
-  status: PaymentStatus;
-  method?: PaymentMethod;
-  createdAt: string;
-  approvedAt?: string;
+  success: boolean;
+  message?: string;
 }
 
 // ========== 유틸리티 ==========
@@ -137,9 +138,7 @@ export function getPaymentStatusColor(status: PaymentStatus): string {
   }
 }
 
-/** 주문 ID 생성 */
+/** 주문 ID 생성 (UUID 형식) */
 export function generateOrderId(): string {
-  const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substring(2, 8);
-  return `ORDER_${timestamp}_${random}`.toUpperCase();
+  return crypto.randomUUID();
 }

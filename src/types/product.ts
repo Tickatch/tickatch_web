@@ -69,7 +69,18 @@ export const CATEGORIES: Category[] = [
 
 // ========== 좌석 관련 ==========
 
-/** 좌석 등급 정보 */
+/** 좌석 등급 응답 (백엔드 SeatGradeResponse와 동기화) */
+export interface SeatGradeResponse {
+  id: number;
+  gradeName: string;
+  price: number;
+  totalSeats: number;
+  availableSeats: number;
+  displayOrder: number;
+  soldOut: boolean;
+}
+
+/** 좌석 등급 정보 (하위 호환용) */
 export interface SeatGrade {
   gradeName: string;
   price: number;
@@ -93,67 +104,76 @@ export interface SeatCreateRequest {
 
 // ========== Response DTOs ==========
 
-/** 상품 응답 */
+/** 상품 응답 (백엔드 ProductResponse와 완전 동기화) */
 export interface ProductResponse {
+  // ========== 기본 정보 ==========
   id: number;
+  sellerId: string;
   name: string;
   productType: ProductType;
-  status: ProductStatus;
+  runningTime: number;
 
-  // 일정
+  // ========== 일정 ==========
   startAt: string;
   endAt: string;
   saleStartAt: string;
   saleEndAt: string;
-  runningTime: number;
 
-  // 장소
+  // ========== 장소 ==========
   stageId: number;
   stageName: string;
   artHallId: number;
   artHallName: string;
   artHallAddress: string;
 
-  // 콘텐츠
-  description?: string;
-  posterImageUrl?: string;
-  detailImageUrls?: string;
-  castInfo?: string;
-  notice?: string;
-  organizer?: string;
-  agency?: string;
+  // ========== 콘텐츠 ==========
+  description?: string | null;
+  posterImageUrl?: string | null;
+  detailImageUrls?: string | null;  // JSON 문자열
+  castInfo?: string | null;
+  notice?: string | null;
+  organizer?: string | null;
+  agency?: string | null;
 
-  // 관람 제한
+  // ========== 관람 제한 ==========
   ageRating: AgeRating;
-  restrictionNotice?: string;
+  restrictionNotice?: string | null;
 
-  // 예매 정책
+  // ========== 예매 정책 ==========
   maxTicketsPerPerson: number;
   idVerificationRequired: boolean;
   transferable: boolean;
 
-  // 입장 정책
+  // ========== 입장 정책 ==========
   admissionMinutesBefore: number;
   lateEntryAllowed: boolean;
-  lateEntryNotice?: string;
+  lateEntryNotice?: string | null;
   hasIntermission: boolean;
   intermissionMinutes: number;
   photographyAllowed: boolean;
   foodAllowed: boolean;
 
-  // 환불 정책
+  // ========== 환불 정책 ==========
   cancellable: boolean;
   cancelDeadlineDays: number;
-  refundPolicyText?: string;
+  refundPolicyText?: string | null;
 
-  // 좌석 정보
-  seatGrades?: SeatGrade[];
+  // ========== 좌석 현황 ==========
   totalSeats: number;
   availableSeats: number;
+  soldOut: boolean;
+  seatGrades: SeatGradeResponse[];
 
-  // 메타
+  // ========== 통계 ==========
   viewCount: number;
-  sellerId: string;
+  reservationCount: number;
+
+  // ========== 상태 ==========
+  purchasable: boolean;
+  status: ProductStatus;
+  rejectionReason?: string | null;
+
+  // ========== 감사 정보 ==========
   createdAt: string;
   updatedAt: string;
 }
@@ -406,4 +426,28 @@ export function getProductTypeColor(type: ProductType): string {
     default:
       return "bg-gray-100 text-gray-800";
   }
+}
+
+/** detailImageUrls JSON 문자열을 배열로 파싱 */
+export function parseDetailImageUrls(detailImageUrls?: string | null): string[] {
+  if (!detailImageUrls) return [];
+  try {
+    const parsed = JSON.parse(detailImageUrls);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    // JSON 파싱 실패 시 콤마로 구분된 문자열로 처리
+    return detailImageUrls.split(",").map(s => s.trim()).filter(Boolean);
+  }
+}
+
+/** 최소 가격 구하기 */
+export function getMinPrice(seatGrades?: SeatGradeResponse[]): number {
+  if (!seatGrades?.length) return 0;
+  return Math.min(...seatGrades.map((g) => g.price));
+}
+
+/** 최대 가격 구하기 */
+export function getMaxPrice(seatGrades?: SeatGradeResponse[]): number {
+  if (!seatGrades?.length) return 0;
+  return Math.max(...seatGrades.map((g) => g.price));
 }
