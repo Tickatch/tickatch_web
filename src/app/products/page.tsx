@@ -8,233 +8,82 @@ import Header from "@/components/common/Header";
 import {
   ProductType,
   ProductStatus,
+  ProductResponse,
   PRODUCT_TYPE_LABELS,
   PRODUCT_STATUS_LABELS,
   CATEGORIES,
-  getStatusColor,
   getProductTypeColor,
 } from "@/types/product";
+import { ApiResponse, PageResponse } from "@/types/api";
 import { cn } from "@/lib/utils";
-
-// 프론트엔드용 상품 목록 아이템
-interface ProductListItem {
-  id: number;
-  name: string;
-  productType: ProductType;
-  status: ProductStatus;
-  posterImageUrl?: string;
-  artHallName: string;
-  startAt: string;
-  endAt: string;
-  minPrice: number;
-  maxPrice: number;
-}
-
-// 더미 상품 데이터
-const DUMMY_PRODUCTS: ProductListItem[] = [
-  {
-    id: 1,
-    name: "2025 아이유 콘서트 - HER",
-    productType: "CONCERT",
-    status: "ON_SALE",
-    posterImageUrl: "https://picsum.photos/seed/product1/300/400",
-    artHallName: "올림픽공원 KSPO DOME",
-    startAt: "2025-03-15T18:00:00",
-    endAt: "2025-03-17T21:00:00",
-    minPrice: 99000,
-    maxPrice: 199000,
-  },
-  {
-    id: 2,
-    name: "뮤지컬 위키드",
-    productType: "MUSICAL",
-    status: "ON_SALE",
-    posterImageUrl: "https://picsum.photos/seed/product2/300/400",
-    artHallName: "블루스퀘어 신한카드홀",
-    startAt: "2025-02-01T14:00:00",
-    endAt: "2025-05-31T21:00:00",
-    minPrice: 70000,
-    maxPrice: 170000,
-  },
-  {
-    id: 3,
-    name: "BTS WORLD TOUR",
-    productType: "CONCERT",
-    status: "SCHEDULED",
-    posterImageUrl: "https://picsum.photos/seed/product3/300/400",
-    artHallName: "서울월드컵경기장",
-    startAt: "2025-06-01T18:00:00",
-    endAt: "2025-06-02T21:00:00",
-    minPrice: 110000,
-    maxPrice: 220000,
-  },
-  {
-    id: 4,
-    name: "오페라의 유령",
-    productType: "MUSICAL",
-    status: "ON_SALE",
-    posterImageUrl: "https://picsum.photos/seed/product4/300/400",
-    artHallName: "샤롯데씨어터",
-    startAt: "2025-01-10T14:00:00",
-    endAt: "2025-04-30T21:00:00",
-    minPrice: 60000,
-    maxPrice: 150000,
-  },
-  {
-    id: 5,
-    name: "연극 햄릿",
-    productType: "PLAY",
-    status: "ON_SALE",
-    posterImageUrl: "https://picsum.photos/seed/product5/300/400",
-    artHallName: "예술의전당 자유소극장",
-    startAt: "2025-03-01T19:00:00",
-    endAt: "2025-03-30T21:00:00",
-    minPrice: 50000,
-    maxPrice: 80000,
-  },
-  {
-    id: 6,
-    name: "2025 KBO 리그 개막전",
-    productType: "SPORTS",
-    status: "ON_SALE",
-    posterImageUrl: "https://picsum.photos/seed/product6/300/400",
-    artHallName: "잠실야구장",
-    startAt: "2025-03-29T14:00:00",
-    endAt: "2025-03-29T17:00:00",
-    minPrice: 15000,
-    maxPrice: 50000,
-  },
-  {
-    id: 7,
-    name: "태양의 서커스 - KURIOS",
-    productType: "MUSICAL",
-    status: "SCHEDULED",
-    posterImageUrl: "https://picsum.photos/seed/product7/300/400",
-    artHallName: "잠실 빅탑",
-    startAt: "2025-04-01T15:00:00",
-    endAt: "2025-06-30T21:00:00",
-    minPrice: 80000,
-    maxPrice: 180000,
-  },
-  {
-    id: 8,
-    name: "뮤지컬 레미제라블",
-    productType: "MUSICAL",
-    status: "ON_SALE",
-    posterImageUrl: "https://picsum.photos/seed/product8/300/400",
-    artHallName: "블루스퀘어 신한카드홀",
-    startAt: "2025-07-01T14:00:00",
-    endAt: "2025-09-30T21:00:00",
-    minPrice: 70000,
-    maxPrice: 170000,
-  },
-  {
-    id: 9,
-    name: "세븐틴 월드투어 - FOLLOW",
-    productType: "CONCERT",
-    status: "CLOSED",
-    posterImageUrl: "https://picsum.photos/seed/product9/300/400",
-    artHallName: "고척스카이돔",
-    startAt: "2025-05-10T18:00:00",
-    endAt: "2025-05-12T21:00:00",
-    minPrice: 110000,
-    maxPrice: 198000,
-  },
-  {
-    id: 10,
-    name: "뮤지컬 시카고",
-    productType: "MUSICAL",
-    status: "ON_SALE",
-    posterImageUrl: "https://picsum.photos/seed/product10/300/400",
-    artHallName: "디큐브 링크아트센터",
-    startAt: "2025-08-01T14:00:00",
-    endAt: "2025-10-31T21:00:00",
-    minPrice: 60000,
-    maxPrice: 150000,
-  },
-  {
-    id: 11,
-    name: "연극 사람의 아들",
-    productType: "PLAY",
-    status: "ON_SALE",
-    posterImageUrl: "https://picsum.photos/seed/product11/300/400",
-    artHallName: "대학로 아트센터",
-    startAt: "2025-04-01T19:30:00",
-    endAt: "2025-04-30T21:30:00",
-    minPrice: 40000,
-    maxPrice: 60000,
-  },
-  {
-    id: 12,
-    name: "K리그 클래식 개막전",
-    productType: "SPORTS",
-    status: "ON_SALE",
-    posterImageUrl: "https://picsum.photos/seed/product12/300/400",
-    artHallName: "서울월드컵경기장",
-    startAt: "2025-02-22T14:00:00",
-    endAt: "2025-02-22T16:00:00",
-    minPrice: 20000,
-    maxPrice: 80000,
-  },
-];
 
 function ProductsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const typeParam = searchParams.get("type")?.toUpperCase() as ProductType | null;
 
-  const [products, setProducts] = useState<ProductListItem[]>([]);
+  const [products, setProducts] = useState<ProductResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"latest" | "popular" | "price">("latest");
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
   // 카테고리 목록 (QUEUE 제외)
   const categoryList = CATEGORIES.filter((c) => c.type !== "QUEUE");
 
   // 현재 선택된 타입
   const currentType = typeParam || "ALL";
-  const currentLabel = currentType === "ALL"
-      ? "전체"
-      : PRODUCT_TYPE_LABELS[currentType as ProductType] || currentType;
+  const currentLabel =
+      currentType === "ALL"
+          ? "전체"
+          : PRODUCT_TYPE_LABELS[currentType as ProductType] || currentType;
 
   useEffect(() => {
     const fetchProducts = async () => {
       setIsLoading(true);
+      setError(null);
+
       try {
-        const url = typeParam
-            ? `/api/products?productType=${typeParam}&status=ON_SALE`
-            : `/api/products?status=ON_SALE`;
+        const params = new URLSearchParams();
+        params.set("page", currentPage.toString());
+        params.set("size", "20");
 
-        const response = await fetch(url);
-
-        if (response.ok) {
-          const result = await response.json();
-          if (result.data?.content?.length > 0) {
-            setProducts(result.data.content);
-          } else {
-            // API 실패 시 더미 데이터
-            const filtered = typeParam
-                ? DUMMY_PRODUCTS.filter((p) => p.productType === typeParam)
-                : DUMMY_PRODUCTS;
-            setProducts(filtered);
-          }
-        } else {
-          const filtered = typeParam
-              ? DUMMY_PRODUCTS.filter((p) => p.productType === typeParam)
-              : DUMMY_PRODUCTS;
-          setProducts(filtered);
+        if (typeParam) {
+          params.set("productType", typeParam);
         }
-      } catch {
-        const filtered = typeParam
-            ? DUMMY_PRODUCTS.filter((p) => p.productType === typeParam)
-            : DUMMY_PRODUCTS;
-        setProducts(filtered);
+
+        // 정렬
+        if (sortBy === "popular") {
+          params.set("sort", "viewCount,desc");
+        } else if (sortBy === "price") {
+          params.set("sort", "minPrice,asc");
+        } else {
+          params.set("sort", "createdAt,desc");
+        }
+
+        const response = await fetch(`/api/products?${params.toString()}`);
+        const result: ApiResponse<PageResponse<ProductResponse>> =
+            await response.json();
+
+        if (result.success && result.data) {
+          setProducts(result.data.content || []);
+          setTotalPages(result.data.pageInfo?.totalPages || 0);
+        } else {
+          setProducts([]);
+          setError(result.error?.message || "상품을 불러오는데 실패했습니다.");
+        }
+      } catch (err) {
+        console.error("Fetch error:", err);
+        setProducts([]);
+        setError("상품을 불러오는데 실패했습니다.");
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchProducts();
-  }, [typeParam]);
+  }, [typeParam, currentPage, sortBy]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("ko-KR").format(price);
@@ -262,7 +111,13 @@ function ProductsContent() {
     }
   };
 
+  const getMinPrice = (product: ProductResponse) => {
+    if (!product.seatGrades?.length) return 0;
+    return Math.min(...product.seatGrades.map((g) => g.price));
+  };
+
   const handleCategoryChange = (type: string) => {
+    setCurrentPage(0);
     if (type === "ALL") {
       router.push("/products");
     } else {
@@ -309,7 +164,10 @@ function ProductsContent() {
 
               <select
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                  onChange={(e) => {
+                    setSortBy(e.target.value as typeof sortBy);
+                    setCurrentPage(0);
+                  }}
                   className={cn(
                       "px-4 py-2 rounded-lg text-sm",
                       "bg-gray-100 dark:bg-gray-800",
@@ -328,6 +186,12 @@ function ProductsContent() {
 
         {/* 상품 목록 */}
         <main className="max-w-[1400px] mx-auto px-4 py-8">
+          {error && (
+              <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              </div>
+          )}
+
           {isLoading ? (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {Array.from({ length: 10 }).map((_, i) => (
@@ -364,69 +228,98 @@ function ProductsContent() {
                 </p>
               </div>
           ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {products.map((product) => (
-                    <Link
-                        key={product.id}
-                        href={`/products/${product.id}`}
-                        className="group"
-                    >
-                      <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-gray-200 dark:bg-gray-800">
-                        <Image
-                            src={
-                                product.posterImageUrl ||
-                                `https://picsum.photos/seed/p${product.id}/300/400`
-                            }
-                            alt={product.name}
-                            fill
-                            className="object-cover transition-transform duration-300 group-hover:scale-105"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {products.map((product) => (
+                      <Link
+                          key={product.id}
+                          href={`/products/${product.id}`}
+                          className="group"
+                      >
+                        <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-gray-200 dark:bg-gray-800">
+                          <Image
+                              src={
+                                  product.posterImageUrl ||
+                                  `https://picsum.photos/seed/p${product.id}/300/400`
+                              }
+                              alt={product.name}
+                              fill
+                              className="object-cover transition-transform duration-300 group-hover:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
-                        {/* 상태 뱃지 */}
-                        <div className="absolute top-2 left-2 flex gap-1">
-                    <span
-                        className={cn(
-                            "px-2 py-1 rounded text-xs font-medium",
-                            getStatusStyle(product.status)
-                        )}
-                    >
-                      {PRODUCT_STATUS_LABELS[product.status]}
-                    </span>
-                        </div>
-
-                        {/* 카테고리 뱃지 (전체 보기일 때만) */}
-                        {currentType === "ALL" && (
-                            <div className="absolute top-2 right-2">
+                          {/* 상태 뱃지 */}
+                          <div className="absolute top-2 left-2 flex gap-1">
                       <span
                           className={cn(
                               "px-2 py-1 rounded text-xs font-medium",
-                              getProductTypeColor(product.productType)
+                              getStatusStyle(product.status)
                           )}
                       >
-                        {PRODUCT_TYPE_LABELS[product.productType]}
+                        {PRODUCT_STATUS_LABELS[product.status]}
                       </span>
-                            </div>
-                        )}
-                      </div>
+                          </div>
 
-                      <div className="mt-3">
-                        <h3 className="font-medium text-gray-900 dark:text-white line-clamp-2 group-hover:text-orange-500 transition-colors">
-                          {product.name}
-                        </h3>
-                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 line-clamp-1">
-                          {product.artHallName}
-                        </p>
-                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                          {formatDate(product.startAt)} ~ {formatDate(product.endAt)}
-                        </p>
-                        <p className="mt-2 font-semibold text-orange-500">
-                          {formatPrice(product.minPrice)}원 ~
-                        </p>
-                      </div>
-                    </Link>
-                ))}
-              </div>
+                          {/* 카테고리 뱃지 (전체 보기일 때만) */}
+                          {currentType === "ALL" && (
+                              <div className="absolute top-2 right-2">
+                        <span
+                            className={cn(
+                                "px-2 py-1 rounded text-xs font-medium",
+                                getProductTypeColor(product.productType)
+                            )}
+                        >
+                          {PRODUCT_TYPE_LABELS[product.productType]}
+                        </span>
+                              </div>
+                          )}
+                        </div>
+
+                        <div className="mt-3">
+                          <h3 className="font-medium text-gray-900 dark:text-white line-clamp-2 group-hover:text-orange-500 transition-colors">
+                            {product.name}
+                          </h3>
+                          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 line-clamp-1">
+                            {product.artHallName}
+                          </p>
+                          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                            {formatDate(product.startAt)} ~ {formatDate(product.endAt)}
+                          </p>
+                          {getMinPrice(product) > 0 && (
+                              <p className="mt-2 font-semibold text-orange-500">
+                                {formatPrice(getMinPrice(product))}원 ~
+                              </p>
+                          )}
+                        </div>
+                      </Link>
+                  ))}
+                </div>
+
+                {/* 페이지네이션 */}
+                {totalPages > 1 && (
+                    <div className="flex justify-center gap-2 mt-8">
+                      <button
+                          onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                          disabled={currentPage === 0}
+                          className="px-4 py-2 rounded-lg text-sm bg-gray-100 dark:bg-gray-800 disabled:opacity-50"
+                      >
+                        이전
+                      </button>
+                      <span className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">
+                  {currentPage + 1} / {totalPages}
+                </span>
+                      <button
+                          onClick={() =>
+                              setCurrentPage((p) => Math.min(totalPages - 1, p + 1))
+                          }
+                          disabled={currentPage >= totalPages - 1}
+                          className="px-4 py-2 rounded-lg text-sm bg-gray-100 dark:bg-gray-800 disabled:opacity-50"
+                      >
+                        다음
+                      </button>
+                    </div>
+                )}
+              </>
           )}
         </main>
       </div>

@@ -7,6 +7,6 @@ interface CategoryPageProps {
 export default async function CategoryPage({ params }: CategoryPageProps) {
   const { type } = await params;
 
-  // /category/[type] → /products?type=[type] 리다이렉트
+  // /products/category/[type] → /products?type=[type] 리다이렉트
   redirect(`/products?type=${type.toUpperCase()}`);
 }
