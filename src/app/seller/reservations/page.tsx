@@ -1,21 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { DataTable, Column } from "@/components/dashboard";
 import { ProductResponse } from "@/types/product";
 import { ReservationDetailResponse, RESERVATION_STATUS_LABELS, getReservationStatusColor } from "@/types/reservation";
 import { cn } from "@/lib/utils";
 
-interface ReservationWithProduct extends ReservationDetailResponse {
-  productName: string;
-  customerEmail?: string;
-}
 
 export default function SellerReservationsPage() {
-  const router = useRouter();
   const [sellerId, setSellerId] = useState<string | null>(null);
-  const [reservations, setReservations] = useState<ReservationWithProduct[]>([]);
+  const [reservations, setReservations] = useState<ReservationDetailResponse[]>([]);
   const [products, setProducts] = useState<ProductResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -56,14 +50,14 @@ export default function SellerReservationsPage() {
           // 2. 각 상품별 예매 좌석 조회 (실제 구현에서는 예매 API 사용)
           // TODO: 실제 예매 데이터는 예매 API에서 가져와야 함
           // 현재는 상품 정보 기반으로 더미 데이터 생성
-          const allReservations: ReservationWithProduct[] = [];
+          const allReservations: ReservationDetailResponse[] = [];
 
           for (const product of myProducts) {
             const soldSeats = product.totalSeats - product.availableSeats;
 
             // 더미 예매 데이터 생성 (실제로는 API 호출)
             for (let i = 0; i < Math.min(soldSeats, 5); i++) {
-              allReservations.push({
+              const reservation: ReservationDetailResponse = {
                 id: `res-${product.id}-${i}`,
                 reserverId: `cust-${i}`,
                 reserverName: `고객${i + 1}`,
@@ -71,10 +65,13 @@ export default function SellerReservationsPage() {
                 productName: product.name,
                 seatId: i + 1,
                 seatNumber: `A${i + 1}`,
-                price: product.seatGrades?.[0]?.price || 50000,
+                price: product.seatGrades?.[0]?.price ?? 50000,
                 status: i === 0 ? "CONFIRMED" : i === 1 ? "PENDING_PAYMENT" : "CONFIRMED",
-                customerEmail: `customer${i + 1}@email.com`,
-              });
+                reservationNumber: `RES-${product.id}-${i + 1}`,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              };
+              allReservations.push(reservation);
             }
           }
 
@@ -108,16 +105,16 @@ export default function SellerReservationsPage() {
     pending: reservations.filter((r) => r.status === "PENDING_PAYMENT").length,
     canceled: reservations.filter((r) => r.status === "CANCELED" || r.status === "EXPIRED").length,
     totalRevenue: reservations
-    .filter((r) => r.status === "CONFIRMED")
-    .reduce((sum, r) => sum + r.price, 0),
+      .filter((r) => r.status === "CONFIRMED")
+      .reduce((sum, r) => sum + (r.price ?? 0), 0),
   };
 
-  const columns: Column<ReservationWithProduct>[] = [
+  const columns: Column<ReservationDetailResponse>[] = [
     {
       key: "id",
       label: "예매번호",
       render: (item) => (
-          <span className="font-mono text-xs">{item.id}</span>
+          <span className="font-mono text-xs">{item.reservationNumber}</span>
       ),
     },
     {
@@ -130,12 +127,6 @@ export default function SellerReservationsPage() {
     {
       key: "reserverName",
       label: "예매자",
-      render: (item) => (
-          <div>
-            <div className="font-medium">{item.reserverName}</div>
-            <div className="text-xs text-gray-500">{item.customerEmail}</div>
-          </div>
-      ),
     },
     {
       key: "seatNumber",
@@ -145,7 +136,7 @@ export default function SellerReservationsPage() {
       key: "price",
       label: "금액",
       render: (item) => (
-          <span>{item.price.toLocaleString()}원</span>
+          <span>{(item.price ?? 0).toLocaleString()}원</span>
       ),
     },
     {
