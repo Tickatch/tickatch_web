@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { UserType } from "@/types/auth";
@@ -17,6 +17,8 @@ interface HeaderProps {
   userType: UserType;
   /** 배너 높이 (스크롤 기준점, 기본값 400px) */
   bannerHeight?: number;
+  /** 스크롤 감지 없이 항상 스크롤된 상태로 표시 (mypage 등) */
+  forceScrolled?: boolean;
 }
 
 const headerConfig: Record<
@@ -44,28 +46,41 @@ const headerConfig: Record<
   },
 };
 
-export default function Header({ userType, bannerHeight = 400 }: HeaderProps) {
+// 스크롤 위치 계산 함수 (컴포넌트 외부)
+const getScrollState = (bannerHeight: number): boolean => {
+  if (typeof window === "undefined") return false;
+  const scrollThreshold = bannerHeight * 0.8;
+  return window.scrollY > scrollThreshold;
+};
+
+export default function Header({ userType, bannerHeight = 400, forceScrolled = false }: HeaderProps) {
   const config = headerConfig[userType];
   const { isAuthenticated } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
+  
+  // forceScrolled가 true면 항상 true, 아니면 스크롤 위치 기반
+  const [scrolled, setScrolled] = useState(() => 
+    forceScrolled || getScrollState(bannerHeight)
+  );
 
   const isCustomer = userType === "CUSTOMER";
 
-  // 스크롤 감지
-  useEffect(() => {
-    const handleScroll = () => {
-      // 배너 높이의 80% 지점을 기준으로 변경
-      const scrollThreshold = bannerHeight * 0.8;
-      setIsScrolled(window.scrollY > scrollThreshold);
-    };
+  // 스크롤 핸들러
+  const handleScroll = useCallback(() => {
+    const scrollThreshold = bannerHeight * 0.8;
+    setScrolled(window.scrollY > scrollThreshold);
+  }, [bannerHeight]);
 
-    // 초기 상태 설정
-    handleScroll();
+  // 스크롤 이벤트 리스너 (forceScrolled가 false일 때만)
+  useEffect(() => {
+    if (forceScrolled) return;
 
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [bannerHeight]);
+  }, [forceScrolled, handleScroll]);
+
+  // 최종 스크롤 상태: forceScrolled가 true면 항상 true
+  const isScrolled = forceScrolled || scrolled;
 
   return (
       <>

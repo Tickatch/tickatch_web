@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import Header from "@/components/common/Header";
 import HeroBanner from "@/components/home/HeroBanner";
+import { TickatchMascot } from "@/components/mascot";
 import { BannerItem, ProductResponse } from "@/types/product";
 import { ApiResponse, PageResponse } from "@/types/api";
 
@@ -486,6 +487,9 @@ export default function HomePage() {
             </div>
           </div>
         </footer>
+
+        {/* 티캐치 마스코트 챗봇 */}
+        <TickatchMascot size="md" />
       </div>
   );
 }

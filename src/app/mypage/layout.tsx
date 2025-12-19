@@ -67,7 +67,7 @@ export default function MypageLayout({
   if (!isAuthenticated) {
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-          <Header userType="CUSTOMER" bannerHeight={0} />
+          <Header userType="CUSTOMER" forceScrolled />
           <div className="pt-16 flex items-center justify-center min-h-[60vh]">
             <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
           </div>
@@ -77,7 +77,7 @@ export default function MypageLayout({
 
   return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-        <Header userType="CUSTOMER" bannerHeight={0} />
+        <Header userType="CUSTOMER" forceScrolled />
 
         <div className="pt-16">
           <div className="max-w-[1200px] mx-auto px-4 py-8">

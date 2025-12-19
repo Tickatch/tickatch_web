@@ -16,6 +16,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "picsum.photos",
       },
+      {
+        protocol: "https",
+        hostname: "fastly.picsum.photos",  // 👈 이거 추가
+      },
       // 파일 서버
       {
         protocol: "https",

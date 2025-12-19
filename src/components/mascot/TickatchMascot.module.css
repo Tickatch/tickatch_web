@@ -1,0 +1,738 @@
+/* ============================================
+   티캐치 마스코트 + 채팅창 CSS
+   ============================================ */
+
+/* 손 흔들기 애니메이션 */
+@keyframes waveLeft {
+  0%, 100% { transform: rotate(-30deg); }
+  25% { transform: rotate(-50deg); }
+  50% { transform: rotate(-20deg); }
+  75% { transform: rotate(-55deg); }
+}
+
+/* 채팅창 슬라이드 업 */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================
+   사이즈 변수
+   ============================================ */
+.sizeSm { --size: 50px; }
+.sizeMd { --size: 65px; }
+.sizeLg { --size: 80px; }
+
+/* ============================================
+   마스코트 버튼
+   ============================================ */
+.mascotButton {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9998;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  outline: none;
+  transition: transform 0.2s ease;
+}
+
+.mascotButton:hover {
+  transform: scale(1.05);
+}
+
+.mascotButton:active {
+  transform: scale(0.95);
+}
+
+.mascotButton:hover .handLeft {
+  animation: waveLeft 0.6s ease-in-out infinite;
+}
+
+.mascotContainer {
+  position: relative;
+  width: calc(var(--size) * 1.3);
+  height: calc(var(--size) * 1.3);
+}
+
+/* ============================================
+   몸체
+   ============================================ */
+.body {
+  width: var(--size);
+  height: calc(var(--size) * 1.15);
+  background: linear-gradient(180deg, #ffe4c9 0%, #ffd4a8 50%, #ffcb94 100%);
+  border-radius: calc(var(--size) * 0.15);
+  position: relative;
+  box-shadow:
+      0 4px 15px rgba(255, 180, 130, 0.4),
+      inset 0 -5px 15px rgba(0, 0, 0, 0.05),
+      inset 0 5px 15px rgba(255, 255, 255, 0.5);
+  margin: 0 auto;
+}
+
+/* ============================================
+   얼굴
+   ============================================ */
+.face {
+  position: absolute;
+  top: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+}
+
+/* 눈 */
+.eyes {
+  display: flex;
+  justify-content: center;
+  gap: calc(var(--size) * 0.25);
+}
+
+.eye {
+  width: calc(var(--size) * 0.14);
+  height: calc(var(--size) * 0.22);
+  background: #5c3a21;
+  border-radius: 50%;
+  position: relative;
+}
+
+.eye::after {
+  content: "";
+  position: absolute;
+  top: 15%;
+  right: 15%;
+  width: 35%;
+  height: 25%;
+  background: white;
+  border-radius: 50%;
+}
+
+/* 홍조 */
+.cheeks {
+  position: absolute;
+  top: calc(var(--size) * 0.22);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 5%;
+}
+
+.cheek {
+  width: calc(var(--size) * 0.15);
+  height: calc(var(--size) * 0.08);
+  background: rgba(255, 100, 100, 0.5);
+  border-radius: 50%;
+  filter: blur(2px);
+}
+
+/* 입 */
+.mouth {
+  width: calc(var(--size) * 0.14);
+  height: calc(var(--size) * 0.16);
+  background: #d35400;
+  border-radius: 0 0 100px 100px;
+  margin: calc(var(--size) * -0.04) auto 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.mouth::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 40%;
+  background: #c0392b;
+  border-radius: 50% 50% 0 0;
+}
+
+/* ============================================
+   손
+   ============================================ */
+.hands {
+  position: absolute;
+  top: 45%;
+  left: 0;
+  right: 0;
+}
+
+.hand {
+  position: absolute;
+  width: calc(var(--size) * 0.12);
+  height: calc(var(--size) * 0.22);
+  background: linear-gradient(180deg, #ffe4c9 0%, #ffd4a8 100%);
+  border-radius: 50%;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.handLeft {
+  left: calc(var(--size) * -0.02);
+  transform-origin: bottom center;
+  transform: rotate(-30deg);
+}
+
+.handRight {
+  right: calc(var(--size) * -0.02);
+  transform-origin: bottom center;
+  transform: rotate(30deg);
+}
+
+/* ============================================
+   헤드셋
+   ============================================ */
+.headset {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(var(--size) * 1.3);
+  height: calc(var(--size) * 0.6);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+/* 채팅 중일 때 헤드셋 표시 */
+.chatting .headset {
+  opacity: 1;
+}
+
+/* 헤드밴드 */
+.headband {
+  position: absolute;
+  top: calc(var(--size) * 0.05);
+  left: 50%;
+  transform: translateX(-50%);
+  width: var(--size);
+  height: calc(var(--size) * 0.18);
+  border: calc(var(--size) * 0.04) solid #333;
+  border-bottom: none;
+  border-radius: calc(var(--size) * 0.15) calc(var(--size) * 0.15) 0 0;
+  background: transparent;
+}
+
+/* 이어패드 */
+.earpad {
+  position: absolute;
+  top: calc(var(--size) * 0.15);
+  width: calc(var(--size) * 0.18);
+  height: calc(var(--size) * 0.24);
+  background: linear-gradient(180deg, #444 0%, #222 100%);
+  border-radius: 30%;
+  box-shadow:
+      inset 0 2px 5px rgba(255,255,255,0.2),
+      0 2px 5px rgba(0,0,0,0.3);
+}
+
+.earpadLeft {
+  left: calc(var(--size) * 0.06);
+}
+
+.earpadRight {
+  right: calc(var(--size) * 0.06);
+}
+
+.earpad::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 55%;
+  height: 55%;
+  background: #555;
+  border-radius: 30%;
+}
+
+/* 마이크 */
+.mic {
+  position: absolute;
+  top: calc(var(--size) * 0.35);
+  left: calc(var(--size) * 0.12);
+  width: calc(var(--size) * 0.04);
+  height: calc(var(--size) * 0.2);
+  background: #333;
+  border-radius: 10px;
+  transform-origin: top center;
+}
+
+.mic::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(var(--size) * 0.08);
+  height: calc(var(--size) * 0.08);
+  background: #444;
+  border-radius: 50%;
+  border: 2px solid #555;
+}
+
+/* 그림자 */
+.shadow {
+  width: calc(var(--size) * 0.7);
+  height: calc(var(--size) * 0.1);
+  background: radial-gradient(ellipse, rgba(0,0,0,0.15) 0%, transparent 70%);
+  border-radius: 50%;
+  margin: 5px auto 0;
+}
+
+/* ============================================
+   채팅창
+   ============================================ */
+.chatWindow {
+  position: fixed;
+  bottom: 110px;
+  right: 24px;
+  width: 360px;
+  height: 500px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  z-index: 9997;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(20px);
+  transition: all 0.3s ease;
+}
+
+.chatWindow.chatOpen {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  animation: slideUp 0.3s ease;
+}
+
+/* 채팅 헤더 */
+.chatHeader {
+  background: linear-gradient(135deg, #ff9500 0%, #ff6a00 100%);
+  color: white;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chatHeaderInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.chatAvatar {
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+/* 채팅 헤더 마스코트 아바타 */
+.chatAvatarMascot {
+  width: 44px;
+  height: 44px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.miniBody {
+  width: 32px;
+  height: 36px;
+  background: linear-gradient(180deg, #ffe4c9 0%, #ffd4a8 50%, #ffcb94 100%);
+  border-radius: 6px;
+  position: relative;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-top: 12px;
+}
+
+.miniFace {
+  position: absolute;
+  top: 25%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+}
+
+.miniEyes {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.miniEye {
+  width: 5px;
+  height: 7px;
+  background: #5c3a21;
+  border-radius: 50%;
+  position: relative;
+}
+
+.miniEye::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 2px;
+  height: 2px;
+  background: white;
+  border-radius: 50%;
+}
+
+.miniMouth {
+  width: 6px;
+  height: 5px;
+  background: #d35400;
+  border-radius: 0 0 50px 50px;
+  margin: 2px auto 0;
+}
+
+.chatTitle {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.chatStatus {
+  font-size: 12px;
+  opacity: 0.9;
+  margin: 0;
+}
+
+.chatClose {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.chatClose:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* 채팅 바디 */
+.chatBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  background: #f8f9fa;
+}
+
+.chatMessages {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.botMessage {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.messageAvatar {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #ffe4c9 0%, #ffd4a8 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+/* 메시지 아바타 내 미니 마스코트 */
+.msgMiniBody {
+  width: 24px;
+  height: 28px;
+  background: linear-gradient(180deg, #ffe4c9 0%, #ffd4a8 50%, #ffcb94 100%);
+  border-radius: 5px;
+  position: relative;
+  margin-top: 10px;
+}
+
+.msgMiniFace {
+  position: absolute;
+  top: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+}
+
+.msgMiniEyes {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+
+.msgMiniEye {
+  width: 4px;
+  height: 5px;
+  background: #5c3a21;
+  border-radius: 50%;
+  position: relative;
+}
+
+.msgMiniEye::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 1.5px;
+  height: 1.5px;
+  background: white;
+  border-radius: 50%;
+}
+
+.msgMiniMouth {
+  width: 4px;
+  height: 4px;
+  background: #d35400;
+  border-radius: 0 0 50px 50px;
+  margin: 1px auto 0;
+}
+
+.messageBubble {
+  background: white;
+  padding: 12px 16px;
+  border-radius: 16px;
+  border-top-left-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  font-size: 14px;
+  line-height: 1.5;
+  color: #333;
+  max-width: 250px;
+}
+
+/* 사용자 메시지 */
+.userMessage {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.userBubble {
+  background: linear-gradient(135deg, #ff9500 0%, #ff6a00 100%);
+  padding: 12px 16px;
+  border-radius: 16px;
+  border-top-right-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  font-size: 14px;
+  line-height: 1.5;
+  color: white;
+  max-width: 250px;
+}
+
+/* 에러 메시지 */
+.errorMessage {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.errorBubble {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  padding: 12px 16px;
+  border-radius: 16px;
+  border-top-left-radius: 4px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #dc2626;
+  max-width: 250px;
+}
+
+/* 타이핑 인디케이터 */
+.typingIndicator {
+  display: flex;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.typingIndicator span {
+  width: 8px;
+  height: 8px;
+  background: #ccc;
+  border-radius: 50%;
+  animation: typing 1.4s infinite ease-in-out both;
+}
+
+.typingIndicator span:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.typingIndicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typingIndicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing {
+  0%, 80%, 100% {
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* 채팅 푸터 */
+.chatFooter {
+  padding: 12px 16px;
+  background: white;
+  border-top: 1px solid #eee;
+  display: flex;
+  gap: 8px;
+}
+
+.chatInput {
+  flex: 1;
+  border: 1px solid #ddd;
+  border-radius: 24px;
+  padding: 10px 16px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+  background: white;
+  color: #333;
+}
+
+.chatInput:focus {
+  border-color: #ff9500;
+}
+
+.chatSend {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #ff9500 0%, #ff6a00 100%);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.chatSend:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(255, 149, 0, 0.4);
+}
+
+/* 오버레이 (모바일) */
+.overlay {
+  display: none;
+}
+
+/* ============================================
+   반응형
+   ============================================ */
+@media (max-width: 768px) {
+  .mascotButton {
+    bottom: 16px;
+    right: 16px;
+  }
+
+  .chatWindow {
+    bottom: 0;
+    right: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .overlay {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9996;
+  }
+}
+
+/* 다크모드 지원 */
+@media (prefers-color-scheme: dark) {
+  .chatWindow {
+    background: #1a1a1a;
+  }
+
+  .chatBody {
+    background: #1a1a1a;
+  }
+
+  .messageBubble {
+    background: #2d2d2d;
+    color: #e0e0e0;
+  }
+
+  .errorBubble {
+    background: #3d1f1f;
+    border-color: #7f1d1d;
+    color: #fca5a5;
+  }
+
+  .chatFooter {
+    background: #1a1a1a;
+    border-top-color: #333;
+  }
+
+  .chatInput {
+    background: #2d2d2d;
+    border-color: #444;
+    color: #e0e0e0;
+  }
+
+  .chatInput:focus {
+    border-color: #ff9500;
+  }
+
+  .typingIndicator span {
+    background: #666;
+  }
+}
