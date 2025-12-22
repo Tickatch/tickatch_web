@@ -1,12 +1,13 @@
+// app/products/[id]/page.tsx
 "use client";
 
-import { useState, useEffect, useCallback, use } from "react";
+import { useState, useEffect, useCallback, use, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import Header from "@/components/common/Header";
 import QueueModal from "@/components/queue/QueueModal";
-import { QueueProvider } from "@/providers/QueueProvider";
+import { QueueProvider, useQueueContext } from "@/providers/QueueProvider";
 import {
   ProductResponse,
   PRODUCT_TYPE_LABELS,
@@ -36,6 +37,7 @@ export default function ProductDetailPage({ params }: Props) {
 function ProductDetailContent({ productId }: { productId: string }) {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
+  const { state: queueState } = useQueueContext();
 
   const [product, setProduct] = useState<ProductResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,6 +48,29 @@ function ProductDetailContent({ productId }: { productId: string }) {
   // 대기열 모달 상태
   const [showQueueModal, setShowQueueModal] = useState(false);
 
+  // 대기열 진행 중인지 추적 (이탈 시 토큰 삭제용)
+  const isInQueueRef = useRef(false);
+
+  // 대기열 상태 변경 시 ref 업데이트
+  useEffect(() => {
+    isInQueueRef.current = queueState === "waiting";
+  }, [queueState]);
+
+  // 페이지 이탈 시 대기열 토큰 삭제
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (isInQueueRef.current) {
+        navigator.sendBeacon("/api/queue/leave/waiting");
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
+
   useEffect(() => {
     const fetchProduct = async () => {
       setIsLoading(true);
@@ -55,14 +80,11 @@ function ProductDetailContent({ productId }: { productId: string }) {
         const response = await fetch(`/api/products/${productId}`);
         const result = await response.json();
 
-        // API 응답 구조: { success: true, data: ProductResponse }
         if (result.success && result.data) {
           setProduct(result.data);
         } else if (result.data) {
-          // success 필드 없이 data만 있는 경우
           setProduct(result.data);
         } else if (result.id) {
-          // 직접 ProductResponse가 온 경우
           setProduct(result);
         } else {
           setError(result.error?.message || "상품을 찾을 수 없습니다.");
@@ -86,18 +108,32 @@ function ProductDetailContent({ productId }: { productId: string }) {
       router.push(`/login?redirect=/products/${productId}`);
       return;
     }
-    // 대기열 모달 열기
     setShowQueueModal(true);
   };
 
   // 대기열 통과 시 예매 페이지로 이동
   const handleQueueReady = useCallback(() => {
-    // 약간의 딜레이 후 이동 (사용자가 "입장 가능" 메시지를 볼 수 있도록)
+    // ✅ 예매 페이지로 이동 시에는 토큰 삭제하지 않음
+    isInQueueRef.current = false;
+
     setTimeout(() => {
       setShowQueueModal(false);
       router.push(`/products/${productId}/reservation`);
     }, 1000);
   }, [productId, router]);
+
+  // ✅ 모달 닫기 시 대기열에서 빠지기
+  const handleQueueModalClose = useCallback(() => {
+    if (isInQueueRef.current) {
+      // 대기 중이었다면 토큰 삭제
+      fetch("/api/queue/leave/waiting", {
+        method: "POST",
+        credentials: "include",
+      });
+      isInQueueRef.current = false;
+    }
+    setShowQueueModal(false);
+  }, []);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("ko-KR").format(price);
@@ -544,7 +580,7 @@ function ProductDetailContent({ productId }: { productId: string }) {
         {/* 대기열 모달 */}
         <QueueModal
             isOpen={showQueueModal}
-            onClose={() => setShowQueueModal(false)}
+            onClose={handleQueueModalClose}
             isAuthenticated={isAuthenticated}
             productName={product.name}
             onReady={handleQueueReady}

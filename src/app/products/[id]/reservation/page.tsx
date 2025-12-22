@@ -1,7 +1,7 @@
 // app/products/[id]/reservation/page.tsx
 "use client";
 
-import { useState, useEffect, useCallback, use, Suspense } from "react";
+import { useState, useEffect, useCallback, use, Suspense, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "@/components/common/Header";
@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 /**
  * 예약 페이지
  * - SSE 연결 없이 API로 입장 권한 검증
+ * - 이탈/새로고침 시 allowed-in-token 삭제
  * - 예매 완료 시 allowed-in-token 삭제
  */
 
@@ -49,7 +50,7 @@ function ReservationContent({ productId }: { productId: string }) {
   const [step, setStep] = useState<"select" | "payment">("select");
   const [createdReservations, setCreatedReservations] = useState<ReservationResponse[]>([]);
 
-  // ✅ 대기열 검증 상태 (SSE 제거, API만 사용)
+  // 대기열 검증 상태 (SSE 제거, API만 사용)
   const [isQueueVerified, setIsQueueVerified] = useState(false);
   const [isQueueChecking, setIsQueueChecking] = useState(true);
 
@@ -57,11 +58,43 @@ function ReservationContent({ productId }: { productId: string }) {
   const [showFailModal, setShowFailModal] = useState(false);
   const [failMessage, setFailMessage] = useState("");
 
-  // ✅ 입장 토큰 삭제 (예매 완료 시 호출)
+  // 결제 완료 여부 추적 (이탈 시 토큰 삭제 방지용)
+  const isPaymentCompletedRef = useRef(false);
+  const isQueueVerifiedRef = useRef(false);
+
+  // isQueueVerified 변경 시 ref 업데이트
+  useEffect(() => {
+    isQueueVerifiedRef.current = isQueueVerified;
+  }, [isQueueVerified]);
+
+  // 페이지 이탈 시 입장 토큰 삭제 (결제 완료 시 제외)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // 결제 완료가 아니고, 입장 권한이 있었던 경우에만 삭제
+      if (!isPaymentCompletedRef.current && isQueueVerifiedRef.current) {
+        navigator.sendBeacon("/api/queue/leave/allowed-in");
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      // 컴포넌트 언마운트 시 (다른 페이지로 이동)
+      if (!isPaymentCompletedRef.current && isQueueVerifiedRef.current) {
+        fetch("/api/queue/leave/allowed-in", {
+          method: "POST",
+          credentials: "include",
+        });
+      }
+    };
+  }, []);
+
+  // 입장 토큰 삭제 (예매 완료 시 호출)
   const removeAllowedInToken = useCallback(async () => {
     try {
-      await fetch("/api/queue/allowed-in-token", {
-        method: "DELETE",
+      await fetch("/api/queue/leave/allowed-in", {
+        method: "POST",
         credentials: "include",
       });
       console.log("[ReservationPage] 입장 토큰 삭제 완료");
@@ -80,7 +113,9 @@ function ReservationContent({ productId }: { productId: string }) {
       const result = await response.json();
 
       if (result.success) {
-        // ✅ 예매 완료 시 입장 토큰 삭제 (API 호출)
+        // 결제 완료 표시 (이탈 시 토큰 삭제 방지)
+        isPaymentCompletedRef.current = true;
+        // 예매 완료 시 입장 토큰 삭제
         await removeAllowedInToken();
         alert("예매가 완료되었습니다!");
         router.push("/mypage/reservations");
