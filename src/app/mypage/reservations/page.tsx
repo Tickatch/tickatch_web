@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  ReservationStatus,
-} from "@/types/reservation";
+import { usePaymentPopup } from "@/hooks/usePaymentPopup";
+import { ReservationStatus } from "@/types/reservation";
+import { CreatePaymentRequest, PaymentItem } from "@/types/payment";
+import { CreateTicketRequest } from "@/types/ticket";
 import { cn } from "@/lib/utils";
 
 // API 응답 타입 (목록용)
@@ -18,6 +19,31 @@ interface ReservationItem {
   price: number | null;
   status: ReservationStatus;
   reservationNumber: string;
+}
+
+// 예매 상세 응답 타입
+interface ReservationDetailResponse {
+  id: string;
+  reserverId: string;
+  reserverName: string;
+  productId: number;
+  productName: string;
+  seatId: number;
+  seatNumber: string;
+  price: number | null;
+  status: ReservationStatus;
+  reservationNumber: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 예약 좌석 응답 타입
+interface ReservationSeatResponse {
+  id: number;
+  seatNumber: string;
+  grade: string;
+  price: number;
+  status: string;
 }
 
 interface PageInfo {
@@ -56,6 +82,13 @@ export default function ReservationsPage() {
   const [cancelingId, setCancelingId] = useState<string | null>(null);
   const [customerId, setCustomerId] = useState<string | null>(null);
 
+  // 결제 처리 상태
+  const [payingId, setPayingId] = useState<string | null>(null);
+  const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
+
+  // 티켓 발행 상태
+  const [issuingId, setIssuingId] = useState<string | null>(null);
+
   // 페이지네이션 상태
   const [pageInfo, setPageInfo] = useState<PageInfo>({
     pageNumber: 0,
@@ -66,6 +99,63 @@ export default function ReservationsPage() {
     last: true,
   });
   const [currentPage, setCurrentPage] = useState(0);
+
+  // 결제 성공 핸들러
+  const handlePaymentSuccess = useCallback(async (data: { paymentKey: string; orderId: string; amount: number }) => {
+    setIsPaymentProcessing(true);
+    try {
+      const response = await fetch(
+          `/api/payments/resp/success?paymentKey=${data.paymentKey}&orderId=${data.orderId}&amount=${data.amount}`
+      );
+      const result = await response.json();
+
+      if (result.success) {
+        alert("결제가 완료되었습니다!");
+        // 목록 새로고침
+        if (customerId) {
+          fetchReservations(currentPage);
+        }
+      } else {
+        alert(result.error?.message || "결제 확정에 실패했습니다.");
+      }
+    } catch (error) {
+      console.error("Payment success callback error:", error);
+      alert("결제 확정 중 오류가 발생했습니다.");
+    } finally {
+      setIsPaymentProcessing(false);
+      setPayingId(null);
+    }
+  }, [customerId, currentPage]);
+
+  // 결제 실패 핸들러
+  const handlePaymentFail = useCallback(async (data: { code: string; message: string; orderId?: string }) => {
+    if (data.orderId) {
+      try {
+        await fetch(
+            `/api/payments/resp/fail?code=${data.code}&message=${encodeURIComponent(data.message)}&orderId=${data.orderId}`
+        );
+      } catch (error) {
+        console.error("Payment fail callback error:", error);
+      }
+    }
+    alert(data.message || "결제가 취소되었습니다.");
+    setIsPaymentProcessing(false);
+    setPayingId(null);
+  }, []);
+
+  // 결제 취소 핸들러
+  const handlePaymentCancel = useCallback(() => {
+    alert("결제를 취소하셨습니다.");
+    setIsPaymentProcessing(false);
+    setPayingId(null);
+  }, []);
+
+  // 결제 팝업 훅
+  const { openPaymentPopup } = usePaymentPopup({
+    onSuccess: handlePaymentSuccess,
+    onFail: handlePaymentFail,
+    onCancel: handlePaymentCancel,
+  });
 
   // 내 정보 조회
   useEffect(() => {
@@ -162,6 +252,152 @@ export default function ReservationsPage() {
       alert("취소에 실패했습니다.");
     } finally {
       setCancelingId(null);
+    }
+  };
+
+  // 결제하기 (PENDING_PAYMENT 상태)
+  const handlePayment = async (reservation: ReservationItem) => {
+    if (isPaymentProcessing) return;
+
+    setPayingId(reservation.id);
+    setIsPaymentProcessing(true);
+
+    try {
+      // 1. 예매 상세 조회 (상품명 등 필요)
+      const detailResponse = await fetch(`/api/reservations/${reservation.id}`);
+      const detailResult = await detailResponse.json();
+
+      let reservationDetail: ReservationDetailResponse | null = null;
+      if (detailResult.success && detailResult.data) {
+        reservationDetail = detailResult.data;
+      } else if (detailResult.data) {
+        reservationDetail = detailResult.data;
+      } else if (detailResult.id) {
+        reservationDetail = detailResult;
+      }
+
+      if (!reservationDetail) {
+        throw new Error("예매 정보를 조회할 수 없습니다.");
+      }
+
+      // 2. 결제 생성
+      const paymentItems: PaymentItem[] = [{
+        reservationId: reservation.id,
+        price: reservation.price || 0,
+      }];
+
+      const paymentRequest: CreatePaymentRequest = {
+        orderName: reservationDetail.productName || "공연 예매",
+        payments: paymentItems,
+      };
+
+      const paymentResponse = await fetch("/api/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(paymentRequest),
+      });
+
+      const paymentResult = await paymentResponse.json();
+
+      if (!paymentResult.success) {
+        throw new Error(paymentResult.error?.message || "결제 생성에 실패했습니다.");
+      }
+
+      const checkoutUrl = paymentResult.data.checkoutUrl;
+
+      if (!checkoutUrl) {
+        throw new Error("결제 URL을 받지 못했습니다.");
+      }
+
+      // 3. 결제 팝업 열기
+      openPaymentPopup(checkoutUrl);
+
+    } catch (error) {
+      console.error("Payment error:", error);
+      alert(error instanceof Error ? error.message : "결제 요청 중 오류가 발생했습니다.");
+      setIsPaymentProcessing(false);
+      setPayingId(null);
+    }
+  };
+
+  // 티켓 발행하기 (CONFIRMED 상태)
+  const handleIssueTicket = async (reservation: ReservationItem) => {
+    if (!confirm("티켓을 발행하시겠습니까?")) return;
+
+    setIssuingId(reservation.id);
+
+    try {
+      // 1. 예매 상세 조회 (seatNumber, productName 등)
+      const detailResponse = await fetch(`/api/reservations/${reservation.id}`);
+      const detailResult = await detailResponse.json();
+
+      let reservationDetail: ReservationDetailResponse | null = null;
+      if (detailResult.success && detailResult.data) {
+        reservationDetail = detailResult.data;
+      } else if (detailResult.data) {
+        reservationDetail = detailResult.data;
+      } else if (detailResult.id) {
+        reservationDetail = detailResult;
+      }
+
+      if (!reservationDetail) {
+        throw new Error("예매 정보를 조회할 수 없습니다.");
+      }
+
+      // 2. 예약 좌석 조회 (grade 정보 획득)
+      const seatsResponse = await fetch(`/api/reservation-seats?productId=${reservation.productId}`);
+      const seatsResult = await seatsResponse.json();
+
+      let reservationSeats: ReservationSeatResponse[] = [];
+      if (seatsResult.success && seatsResult.data) {
+        reservationSeats = Array.isArray(seatsResult.data)
+            ? seatsResult.data
+            : seatsResult.data.content || [];
+      } else if (Array.isArray(seatsResult.data)) {
+        reservationSeats = seatsResult.data;
+      } else if (seatsResult.content) {
+        reservationSeats = seatsResult.content;
+      }
+
+      // seatNumber로 해당 좌석의 grade 찾기
+      const matchingSeat = reservationSeats.find(
+          seat => seat.seatNumber === reservationDetail!.seatNumber
+      );
+
+      const grade = matchingSeat?.grade || "일반";
+
+      // 3. 티켓 생성 요청
+      const ticketRequest: CreateTicketRequest = {
+        reservationId: reservation.id,
+        seatId: reservation.seatId,
+        productId: reservation.productId,
+        seatNumber: reservationDetail.seatNumber,
+        grade: grade,
+        price: reservation.price,
+        receiveMethod: "ON_SITE",
+      };
+
+      const ticketResponse = await fetch("/api/tickets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(ticketRequest),
+      });
+
+      const ticketResult = await ticketResponse.json();
+
+      if (ticketResult.success) {
+        alert("티켓이 발행되었습니다!");
+        // 목록 새로고침
+        fetchReservations(currentPage);
+      } else {
+        throw new Error(ticketResult.error?.message || "티켓 발행에 실패했습니다.");
+      }
+
+    } catch (error) {
+      console.error("Issue ticket error:", error);
+      alert(error instanceof Error ? error.message : "티켓 발행 중 오류가 발생했습니다.");
+    } finally {
+      setIssuingId(null);
     }
   };
 
@@ -342,23 +578,70 @@ export default function ReservationsPage() {
                             </p>
                           </div>
 
-                          {/* 하단: 취소 버튼 */}
-                          {reservation.status === "CONFIRMED" && (
-                              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                          {/* 하단: 액션 버튼들 */}
+                          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-2">
+                            {/* 결제 대기 상태 → 결제하기 버튼 */}
+                            {reservation.status === "PENDING_PAYMENT" && (
                                 <button
-                                    onClick={() => handleCancel(reservation.id)}
-                                    disabled={cancelingId === reservation.id}
+                                    onClick={() => handlePayment(reservation)}
+                                    disabled={payingId === reservation.id || isPaymentProcessing}
                                     className={cn(
                                         "px-4 py-1.5 text-sm font-medium rounded-lg transition-colors",
-                                        cancelingId === reservation.id
+                                        payingId === reservation.id || isPaymentProcessing
                                             ? "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
-                                            : "text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800"
+                                            : "bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white"
                                     )}
                                 >
-                                  {cancelingId === reservation.id ? "취소 중..." : "예매 취소"}
+                                  {payingId === reservation.id ? (
+                                      <span className="flex items-center gap-2">
+                              <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              처리 중...
+                            </span>
+                                  ) : (
+                                      "결제하기"
+                                  )}
                                 </button>
-                              </div>
-                          )}
+                            )}
+
+                            {/* 예매 완료 상태 → 발행하기 버튼 */}
+                            {reservation.status === "CONFIRMED" && (
+                                <>
+                                  <button
+                                      onClick={() => handleIssueTicket(reservation)}
+                                      disabled={issuingId === reservation.id}
+                                      className={cn(
+                                          "px-4 py-1.5 text-sm font-medium rounded-lg transition-colors",
+                                          issuingId === reservation.id
+                                              ? "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
+                                              : "bg-blue-500 hover:bg-blue-600 text-white"
+                                      )}
+                                  >
+                                    {issuingId === reservation.id ? (
+                                        <span className="flex items-center gap-2">
+                                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                발행 중...
+                              </span>
+                                    ) : (
+                                        "티켓 발행"
+                                    )}
+                                  </button>
+
+                                  {/* 예매 취소 버튼 */}
+                                  <button
+                                      onClick={() => handleCancel(reservation.id)}
+                                      disabled={cancelingId === reservation.id}
+                                      className={cn(
+                                          "px-4 py-1.5 text-sm font-medium rounded-lg transition-colors",
+                                          cancelingId === reservation.id
+                                              ? "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
+                                              : "text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800"
+                                      )}
+                                  >
+                                    {cancelingId === reservation.id ? "취소 중..." : "예매 취소"}
+                                  </button>
+                                </>
+                            )}
+                          </div>
                         </div>
                       </div>
                   ))}
