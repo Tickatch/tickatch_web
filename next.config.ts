@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
+    unoptimized: true,
     remotePatterns: [
       // 플레이스홀더 이미지
       {
@@ -18,7 +19,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "fastly.picsum.photos",  // 👈 이거 추가
+        hostname: "fastly.picsum.photos",
       },
       // 파일 서버
       {
