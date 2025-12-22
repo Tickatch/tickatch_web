@@ -210,18 +210,26 @@ export default function QueueModal({
                   {/* 대기 정보 그리드 */}
                   <div className="grid grid-cols-3 gap-3 mb-6">
                     {/* 내 순번 */}
-                    <div className="bg-gray-800/50 rounded-xl p-3">
-                      <p className="text-gray-400 text-xs mb-1">내 순번</p>
-                      <p className="text-xl font-bold text-white">
-                        {status.userQueuePosition.toLocaleString()}
-                      </p>
-                    </div>
+                    {/*<div className="bg-gray-800/50 rounded-xl p-3">*/}
+                    {/*  <p className="text-gray-400 text-xs mb-1">내 순번</p>*/}
+                    {/*  <p className="text-xl font-bold text-white">*/}
+                    {/*    {status.userQueuePosition.toLocaleString()}*/}
+                    {/*  </p>*/}
+                    {/*</div>*/}
 
                     {/* 앞에 남은 인원 */}
                     <div className="bg-gray-800/50 rounded-xl p-3">
                       <p className="text-gray-400 text-xs mb-1">앞에 대기</p>
                       <p className="text-xl font-bold text-orange-500">
                         {(status.userQueuePosition - 1).toLocaleString()}
+                      </p>
+                    </div>
+
+                    {/* 뒤에 남은 인원 */}
+                    <div className="bg-gray-800/50 rounded-xl p-3">
+                      <p className="text-gray-400 text-xs mb-1">뒤에 대기</p>
+                      <p className="text-xl font-bold text-orange-500">
+                        {status.usersBehind.toLocaleString()}
                       </p>
                     </div>
 
