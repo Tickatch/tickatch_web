@@ -81,7 +81,7 @@ export default function CustomerSignupPage() {
     }
   };
 
-  // 1단계: Auth 서버 회원가입
+  // 1단계: Auth 서버 회원가입 후 로그인
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -111,7 +111,8 @@ export default function CustomerSignupPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/auth/register", {
+      // 1. 회원가입 요청
+      const registerResponse = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -122,14 +123,32 @@ export default function CustomerSignupPage() {
         }),
       });
 
-      const data = await response.json();
+      const registerData = await registerResponse.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || "회원가입에 실패했습니다.");
+      if (!registerResponse.ok) {
+        throw new Error(registerData.error || "회원가입에 실패했습니다.");
+      }
+
+      // 2. 회원가입 성공 후 바로 로그인하여 쿠키에 토큰 저장
+      const loginResponse = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password,
+          userType: "CUSTOMER",
+          rememberMe,
+        }),
+      });
+
+      const loginData = await loginResponse.json();
+
+      if (!loginResponse.ok || !loginData.success) {
+        throw new Error(loginData.error || "로그인에 실패했습니다.");
       }
 
       // 토큰 저장하고 2단계로 이동
-      setAuthToken(data as LoginResponse);
+      setAuthToken(loginData.data as LoginResponse);
       setStep("profile");
     } catch (err) {
       setError(err instanceof Error ? err.message : "회원가입에 실패했습니다.");
@@ -167,11 +186,11 @@ export default function CustomerSignupPage() {
         birthDate: birthDate || null,
       };
 
+      // 쿠키에 토큰이 저장되어 있으므로 Authorization 헤더 없이 요청
       const response = await fetch("/api/user/customers", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${authToken?.accessToken}`,
         },
         body: JSON.stringify(customerData),
       });

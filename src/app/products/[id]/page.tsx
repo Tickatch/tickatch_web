@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import Header from "@/components/common/Header";
 import QueueModal from "@/components/queue/QueueModal";
+import { QueueProvider } from "@/providers/QueueProvider";
 import {
   ProductResponse,
   PRODUCT_TYPE_LABELS,
@@ -24,6 +25,15 @@ interface Props {
 
 export default function ProductDetailPage({ params }: Props) {
   const { id: productId } = use(params);
+
+  return (
+      <QueueProvider>
+        <ProductDetailContent productId={productId} />
+      </QueueProvider>
+  );
+}
+
+function ProductDetailContent({ productId }: { productId: string }) {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
 
