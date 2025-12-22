@@ -1,3 +1,4 @@
+// components/queue/QueueModal.tsx
 "use client";
 
 import { useEffect } from "react";
@@ -39,7 +40,7 @@ export default function QueueModal({
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !isLoading && !status) {
-        onClose();
+        handleClose();
       }
     };
 
@@ -52,7 +53,7 @@ export default function QueueModal({
       document.removeEventListener("keydown", handleEscape);
       document.body.style.overflow = "";
     };
-  }, [isOpen, isLoading, status, onClose]);
+  }, [isOpen, isLoading, status]);
 
   // 모달 닫을 때 대기열 초기화
   const handleClose = () => {

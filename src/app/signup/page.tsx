@@ -64,14 +64,14 @@ export default function CustomerSignupPage() {
         body: JSON.stringify({ email, userType: "CUSTOMER" }),
       });
 
-      const data = await response.json();
+      const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "이메일 확인에 실패했습니다.");
+        throw new Error(result.error || "이메일 확인에 실패했습니다.");
       }
 
-      setEmailAvailable(data.available);
-      if (!data.available) {
+      setEmailAvailable(result.data.available);
+      if (!result.data.available) {
         setError("이미 사용 중인 이메일입니다.");
       }
     } catch (err) {

@@ -1,3 +1,4 @@
+// app/products/[id]/reservation/page.tsx
 "use client";
 
 import { useState, useEffect, useCallback, use, Suspense } from "react";
@@ -11,7 +12,15 @@ import { CreateReservationRequest, ReservationResponse } from "@/types/reservati
 import { CreatePaymentRequest, PaymentItem } from "@/types/payment";
 import { useAuth } from "@/hooks/useAuth";
 import { usePaymentPopup } from "@/hooks/usePaymentPopup";
+import { useQueueVerification } from "@/hooks/useQueue";
 import { cn } from "@/lib/utils";
+
+/**
+ * 예약 페이지
+ * - QueueProvider에서 관리하는 SSE 연결을 통해 대기열 상태 유지
+ * - useQueueVerification 훅으로 입장 가능 여부 확인
+ * - 결제 완료 시 completeQueue()로 대기열 종료
+ */
 
 const GRADE_COLOR_PALETTE = [
   { bg: "bg-purple-500" },
@@ -42,8 +51,8 @@ function ReservationContent({ productId }: { productId: string }) {
   const [step, setStep] = useState<"select" | "payment">("select");
   const [createdReservations, setCreatedReservations] = useState<ReservationResponse[]>([]);
 
-  // 대기열 검증 상태
-  const [isQueueVerified, setIsQueueVerified] = useState(false);
+  // ✅ 대기열 검증 (Context 기반 - SSE 연결 유지)
+  const { isVerified, queueState, checkStatus, completeQueue } = useQueueVerification();
   const [isQueueChecking, setIsQueueChecking] = useState(true);
 
   // 결제 실패 모달 상태
@@ -60,6 +69,8 @@ function ReservationContent({ productId }: { productId: string }) {
       const result = await response.json();
 
       if (result.success) {
+        // ✅ 예매 완료 시 대기열 종료 (SSE 연결 해제)
+        completeQueue();
         alert("예매가 완료되었습니다!");
         router.push("/mypage/reservations");
       } else {
@@ -73,7 +84,7 @@ function ReservationContent({ productId }: { productId: string }) {
     } finally {
       setIsProcessing(false);
     }
-  }, [router]);
+  }, [router, completeQueue]);
 
   // 결제 실패 핸들러
   const handlePaymentFail = useCallback(async (data: { code: string; message: string; orderId?: string }) => {
@@ -122,39 +133,34 @@ function ReservationContent({ productId }: { productId: string }) {
     }
   }, [authLoading, isAuthenticated, productId, router]);
 
-  // 대기열 검증 - 페이지 접근 시 status 확인
+  // ✅ 대기열 검증 - Context 상태 확인 (SSE 연결은 QueueProvider에서 유지)
   useEffect(() => {
     const verifyQueueAccess = async () => {
       if (!isAuthenticated || authLoading) return;
 
       setIsQueueChecking(true);
 
+      // 1. Context 상태 먼저 확인 (이미 ready 상태인 경우)
+      if (isVerified || queueState === "ready") {
+        console.log("[ReservationPage] Context에서 이미 verified 상태");
+        setIsQueueChecking(false);
+        return;
+      }
+
+      // 2. Context가 ready가 아니면 API로 확인
       try {
-        const res = await fetch("/api/queue/status", {
-          method: "GET",
-          credentials: "include",
-        });
+        const canEnter = await checkStatus();
 
-        const result = await res.json();
-
-        if (!result.success) {
-          // 대기열에 등록되지 않았거나 에러 발생
-          console.log("Queue verification failed:", result);
+        if (!canEnter) {
+          // 입장 불가 - 상품 페이지로 리다이렉트
+          console.log("[ReservationPage] 대기열 검증 실패, 리다이렉트");
           router.push(`/products/${productId}`);
           return;
         }
 
-        // 입장 가능 여부 확인
-        // 입장 가능: message가 "입장 가능합니다."이고 data가 null
-        if (result.message === "입장 가능합니다." && !result.data) {
-          setIsQueueVerified(true);
-        } else {
-          // 아직 대기 중이면 상품 상세 페이지로 리다이렉트
-          console.log("Queue not ready, redirecting...");
-          router.push(`/products/${productId}`);
-        }
+        console.log("[ReservationPage] API 검증 성공");
       } catch (error) {
-        console.error("Queue verification error:", error);
+        console.error("[ReservationPage] Queue verification error:", error);
         router.push(`/products/${productId}`);
       } finally {
         setIsQueueChecking(false);
@@ -162,12 +168,14 @@ function ReservationContent({ productId }: { productId: string }) {
     };
 
     verifyQueueAccess();
-  }, [isAuthenticated, authLoading, productId, router]);
+  }, [isAuthenticated, authLoading, productId, router, isVerified, queueState, checkStatus]);
 
   // 데이터 로드 - 대기열 검증 후에만 실행
   useEffect(() => {
     const fetchData = async () => {
-      if (!isQueueVerified) return;
+      // Context 상태 확인
+      if (isQueueChecking) return;
+      if (!isVerified && queueState !== "ready") return;
 
       setIsLoading(true);
       setError(null);
@@ -241,10 +249,10 @@ function ReservationContent({ productId }: { productId: string }) {
       }
     };
 
-    if (productId && !authLoading && isAuthenticated && isQueueVerified) {
+    if (productId && !authLoading && isAuthenticated) {
       fetchData();
     }
-  }, [productId, authLoading, isAuthenticated, isQueueVerified]);
+  }, [productId, authLoading, isAuthenticated, isQueueChecking, isVerified, queueState]);
 
   // 좌석 선택/해제
   const handleSeatSelect = useCallback((seat: SelectableSeatInfo) => {
@@ -348,6 +356,7 @@ function ReservationContent({ productId }: { productId: string }) {
       }));
 
       const paymentRequest: CreatePaymentRequest = {
+        orderName: product?.name || "공연 예매",
         payments: paymentItems,
       };
 
@@ -403,7 +412,7 @@ function ReservationContent({ productId }: { productId: string }) {
   }
 
   // 대기열 검증 실패 (이미 리다이렉트 되지만, fallback으로)
-  if (!isQueueVerified) {
+  if (!isVerified && queueState !== "ready") {
     return (
         <>
           <Header userType={userType || "CUSTOMER"} />

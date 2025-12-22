@@ -67,6 +67,7 @@ export interface PaymentItem {
 
 /** 결제 생성 요청 - CreatePaymentRequest */
 export interface CreatePaymentRequest {
+  orderName: string;
   payments: PaymentItem[];
 }
 
