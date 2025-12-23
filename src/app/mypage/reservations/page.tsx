@@ -7,8 +7,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePaymentPopup } from "@/hooks/usePaymentPopup";
 import { ReservationStatus } from "@/types/reservation";
 import { CreatePaymentRequest, PaymentItem } from "@/types/payment";
-import { CreateTicketRequest } from "@/types/ticket";
+import { CreateTicketRequest, ReceiveMethod } from "@/types/ticket";
 import { cn } from "@/lib/utils";
+
+// 수령 방법 옵션
+const RECEIVE_METHOD_OPTIONS: { value: ReceiveMethod; label: string; icon: string; description: string }[] = [
+  { value: "ON_SITE", label: "현장 수령", icon: "🏟️", description: "공연장에서 직접 수령" },
+  { value: "EMAIL", label: "이메일", icon: "📧", description: "이메일로 티켓 전송" },
+  { value: "SMS", label: "SMS", icon: "📱", description: "문자로 티켓 전송" },
+];
 
 // API 응답 타입 (목록용)
 interface ReservationItem {
@@ -88,6 +95,11 @@ export default function ReservationsPage() {
 
   // 티켓 발행 상태
   const [issuingId, setIssuingId] = useState<string | null>(null);
+
+  // 티켓 발행 모달 상태
+  const [showIssueModal, setShowIssueModal] = useState(false);
+  const [selectedReceiveMethod, setSelectedReceiveMethod] = useState<ReceiveMethod>("ON_SITE");
+  const [pendingIssueReservation, setPendingIssueReservation] = useState<ReservationItem | null>(null);
 
   // 페이지네이션 상태
   const [pageInfo, setPageInfo] = useState<PageInfo>({
@@ -320,11 +332,27 @@ export default function ReservationsPage() {
     }
   };
 
-  // 티켓 발행하기 (CONFIRMED 상태)
-  const handleIssueTicket = async (reservation: ReservationItem) => {
-    if (!confirm("티켓을 발행하시겠습니까?")) return;
+  // 티켓 발행 모달 열기
+  const openIssueModal = (reservation: ReservationItem) => {
+    setPendingIssueReservation(reservation);
+    setSelectedReceiveMethod("ON_SITE");
+    setShowIssueModal(true);
+  };
 
+  // 티켓 발행 모달 닫기
+  const closeIssueModal = () => {
+    setShowIssueModal(false);
+    setPendingIssueReservation(null);
+    setSelectedReceiveMethod("ON_SITE");
+  };
+
+  // 티켓 발행하기 (CONFIRMED 상태)
+  const handleIssueTicket = async () => {
+    if (!pendingIssueReservation) return;
+
+    const reservation = pendingIssueReservation;
     setIssuingId(reservation.id);
+    closeIssueModal();
 
     try {
       // 1. 예매 상세 조회 (seatNumber, productName 등)
@@ -374,7 +402,7 @@ export default function ReservationsPage() {
         seatNumber: reservationDetail.seatNumber,
         grade: grade,
         price: reservation.price,
-        receiveMethod: "ON_SITE",
+        receiveMethod: selectedReceiveMethod,
       };
 
       const ticketResponse = await fetch("/api/tickets", {
@@ -607,7 +635,7 @@ export default function ReservationsPage() {
                             {reservation.status === "CONFIRMED" && (
                                 <>
                                   <button
-                                      onClick={() => handleIssueTicket(reservation)}
+                                      onClick={() => openIssueModal(reservation)}
                                       disabled={issuingId === reservation.id}
                                       className={cn(
                                           "px-4 py-1.5 text-sm font-medium rounded-lg transition-colors",
@@ -702,6 +730,92 @@ export default function ReservationsPage() {
             )}
           </div>
         </div>
+
+        {/* 티켓 발행 모달 */}
+        {showIssueModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+              {/* 배경 오버레이 */}
+              <div
+                  className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                  onClick={closeIssueModal}
+              />
+
+              {/* 모달 컨텐츠 */}
+              <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
+                {/* 헤더 */}
+                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                      티켓 발행
+                    </h3>
+                    <button
+                        onClick={closeIssueModal}
+                        className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    >
+                      <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    티켓 수령 방법을 선택해주세요
+                  </p>
+                </div>
+
+                {/* 수령 방법 선택 */}
+                <div className="p-6 space-y-3">
+                  {RECEIVE_METHOD_OPTIONS.map((option) => (
+                      <button
+                          key={option.value}
+                          onClick={() => setSelectedReceiveMethod(option.value)}
+                          className={cn(
+                              "w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all",
+                              selectedReceiveMethod === option.value
+                                  ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                                  : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+                          )}
+                      >
+                        <span className="text-2xl">{option.icon}</span>
+                        <div className="flex-1 text-left">
+                          <p className={cn(
+                              "font-medium",
+                              selectedReceiveMethod === option.value
+                                  ? "text-blue-600 dark:text-blue-400"
+                                  : "text-gray-900 dark:text-white"
+                          )}>
+                            {option.label}
+                          </p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {option.description}
+                          </p>
+                        </div>
+                        {selectedReceiveMethod === option.value && (
+                            <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                        )}
+                      </button>
+                  ))}
+                </div>
+
+                {/* 푸터 */}
+                <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-800 flex gap-3">
+                  <button
+                      onClick={closeIssueModal}
+                      className="flex-1 py-3 rounded-xl border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    취소
+                  </button>
+                  <button
+                      onClick={handleIssueTicket}
+                      className="flex-1 py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-medium transition-colors"
+                  >
+                    발행하기
+                  </button>
+                </div>
+              </div>
+            </div>
+        )}
       </div>
   );
 }

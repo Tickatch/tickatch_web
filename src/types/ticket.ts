@@ -13,7 +13,10 @@ export type TicketStatus =
     | "EXPIRED";  // 만료됨
 
 /** 수령 방법 */
-export type ReceiveMethod = "ON_SITE";  // 현장 수령
+export type ReceiveMethod =
+    | "ON_SITE"   // 현장 수령
+    | "EMAIL"     // 이메일
+    | "SMS";      // SMS
 
 // ========== Labels ==========
 
@@ -26,6 +29,8 @@ export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
 
 export const RECEIVE_METHOD_LABELS: Record<ReceiveMethod, string> = {
   ON_SITE: "현장 수령",
+  EMAIL: "이메일",
+  SMS: "SMS",
 };
 
 // ========== Request DTOs ==========
