@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
 // Streamix 파일 서버 URL (게이트웨이 별도)
-const FILE_SERVER_URL = "https://www.pinjun.xyz/file/api/streamix/files";
-const FILE_BASE_URL = "https://www.pinjun.xyz/file";
+const FILE_SERVER_URL = process.env.INTERNAL_FILE_SERVER_URL
+    || "https://www.pinjun.xyz/file/api/streamix/files";
+const FILE_BASE_URL = process.env.NEXT_PUBLIC_FILE_BASE_URL
+    || "https://www.pinjun.xyz/file";
 
 /**
  * Streamix 파일 업로드 응답 타입
